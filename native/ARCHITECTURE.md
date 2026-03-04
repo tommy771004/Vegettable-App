@@ -88,3 +88,7 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
 2. **價格預測與趨勢分析 (Price Forecasting)**：
    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/forecast/{produceId}`，根據過去 14 天的歷史資料，計算 7 日移動平均線，預測未來價格趨勢 (上漲、下跌或持平)。
    - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getForecast` 方法，讓前端可以取得價格預測結果。
+
+3. **熱門交易農產品 (Top Volume Crops)**：
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/top-volume`，取得今日交易量最大的前 10 名農產品，幫助使用者了解目前市場上最熱銷、當季的農產品。
+   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getTopVolumeCrops` 方法，讓前端可以輕鬆呼叫熱門農產品 API。

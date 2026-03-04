@@ -82,6 +82,13 @@ public class ProduceService {
         client.newCall(request).enqueue(callback);
     }
 
+    // 新增功能：熱門交易農產品 (Top Volume Crops)
+    public void getTopVolumeCrops(Callback callback) {
+        String url = BASE_URL + "/top-volume";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
     // 邏輯修正：移除 body 中的 userId，因為已經透過 AuthInterceptor 放在 Header 中了
     public void syncFavorite(String produceId, double targetPrice, Callback callback) {
         try {

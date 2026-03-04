@@ -150,6 +150,37 @@ namespace ProduceApi.Controllers
             });
         }
 
+        // 新增功能：熱門交易農產品 (Top Volume Crops)
+        // 取得今日交易量最大的前 10 名農產品，幫助使用者了解目前市場上最熱銷、當季的農產品
+        [HttpGet("top-volume")]
+        public async Task<IActionResult> GetTopVolumeCrops()
+        {
+            try
+            {
+                string rawData = await _produceService.FetchProduceDataAsync("ALL");
+                var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
+
+                var topItems = moaItems.Select(m => new ProduceDto {
+                    CropCode = m.CropCode,
+                    CropName = m.CropName,
+                    MarketCode = m.MarketCode,
+                    MarketName = m.MarketName,
+                    AvgPrice = m.AvgPrice,
+                    TransQuantity = m.TransQuantity,
+                    Date = m.Date
+                })
+                .OrderByDescending(x => x.TransQuantity)
+                .Take(10)
+                .ToList();
+
+                return Ok(topItems);
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
         [HttpPost("favorites")]
         public async Task<IActionResult> AddFavorite([FromBody] FavoriteRequest request)
         {

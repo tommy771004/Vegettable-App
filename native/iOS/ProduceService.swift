@@ -88,6 +88,27 @@ class ProduceService {
         }.resume()
     }
     
+    // 新增功能：熱門交易農產品 (Top Volume Crops)
+    func getTopVolumeCrops(completion: @escaping (Result<[ProduceDto], Error>) -> Void) {
+        let urlString = "\(baseURL)/top-volume"
+        guard let url = URL(string: urlString) else { return }
+        
+        var request = URLRequest(url: url)
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([ProduceDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
     // 邏輯修正：移除 body 中的 userId，因為已經放在 Header 中了
     func syncFavorite(produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void) {
         guard let url = URL(string: "\(baseURL)/favorites") else { return }
