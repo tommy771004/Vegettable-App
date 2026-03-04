@@ -133,6 +133,11 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
       - `FavoritesScreen.kt`：實作「我的收藏」頁面，延續 Liquid Glass 風格，並根據目標價是否達成顯示不同的鈴鐺狀態 (已達標/追蹤中)。
       - `SettingsScreen.kt`：實作「設定」頁面，包含推播、語言、離線快取等選項。
       - `PriceTrendChart.kt`：使用 `Canvas` 繪製折線圖，實線代表歷史價格，虛線 (橘色) 代表 AI 預測趨勢。
+      - `PriceChartActivity.java`：使用 `MPAndroidChart` 繪製歷史價格走勢圖。
+      - `CommunityReportActivity.java`：實作社群回報零售價表單。
+      - `ElderlyModeActivity.java`：實作長輩友善語音查詢模式。
+      - `SeasonalCalendarActivity.java`：實作節氣與當季農產品日曆。
+      - `PriceAlertSetupActivity.java`：實作價格追蹤與到價提醒設定。
     - **iOS (SwiftUI)**：
       - `MainTabView.swift`：實作懸浮式底部導覽列，完美融合 `.ultraThinMaterial` 打造 iOS 26 質感。
       - `ProduceViewModel.swift`：使用 `@MainActor` 與 `@Published` 進行狀態管理，包含收藏清單資料。
@@ -140,3 +145,8 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
       - `FavoritesScreen.swift`：實作「我的收藏」頁面，延續毛玻璃質感，並使用 SF Symbols 呈現目標價追蹤狀態。
       - `SettingsScreen.swift`：實作「設定」頁面，提供各項 App 設定選項。
       - `PriceTrendView.swift`：導入 Apple 原生 `Charts` 框架，使用 `LineMark` 繪製歷史與預測價格走勢圖。
+      - `PriceChartView.swift`：使用 SwiftUI Charts 繪製歷史價格走勢圖。
+      - `CommunityReportView.swift`：實作社群回報零售價表單。
+      - `ElderlyModeView.swift`：實作長輩友善語音查詢模式。
+      - `SeasonalCalendarView.swift`：實作節氣與當季農產品日曆。
+      - `PriceAlertSetupView.swift`：實作價格追蹤與到價提醒設定。

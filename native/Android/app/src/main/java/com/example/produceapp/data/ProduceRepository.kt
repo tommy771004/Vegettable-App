@@ -21,6 +21,10 @@ interface ProduceDao {
     @Query("SELECT * FROM produce_items")
     fun getAllProduce(): Flow<List<ProduceEntity>>
 
+    // 新增：根據果菜市場名稱進行篩選 (例如："台北一", "台北二", "台中市")
+    @Query("SELECT * FROM produce_items WHERE marketName = :market")
+    fun getProduceByMarket(market: String): Flow<List<ProduceEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(produce: List<ProduceEntity>)
 
@@ -52,6 +56,9 @@ class ProduceRepository(
 ) {
     // 取得資料：先回傳本地 Room 資料，同時背景向 API 請求最新資料並更新 Room
     fun getProduceData(): Flow<List<ProduceEntity>> = dao.getAllProduce()
+
+    // 新增：取得特定市場的資料
+    fun getProduceDataByMarket(market: String): Flow<List<ProduceEntity>> = dao.getProduceByMarket(market)
 
     suspend fun refreshData() {
         try {
