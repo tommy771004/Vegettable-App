@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Store Screenshots Generator (Liquid Glass UI)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #1a1a1a; 
+            padding: 2rem; 
+            color: white;
+        }
+        /* App Store Screenshot Standard Size (iPhone 6.5" Display: 1242 x 2688) 
+           Here we scale it down to 414 x 896 for easy browser rendering and screenshotting */
+        .screenshot-container { 
+            width: 414px; 
+            height: 896px; 
+            position: relative; 
+            overflow: hidden; 
+            border-radius: 0px; /* App store screenshots are usually sharp rectangles */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
+            flex-shrink: 0; 
+        }
+        
+        /* Liquid Glass CSS */
+        .liquid-glass { 
+            background: rgba(255, 255, 255, 0.3); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); 
+        }
+        
+        /* Device Mockup */
+        .device-frame { 
+            position: absolute; 
+            bottom: -40px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 360px; 
+            height: 760px; 
+            background: linear-gradient(135deg, #E8F5E9, #C8E6C9); 
+            border-radius: 44px; 
+            border: 12px solid #000; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
+            overflow: hidden; 
+        }
+        .notch { 
+            position: absolute; 
+            top: 0; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 140px; 
+            height: 30px; 
+            background: #000; 
+            border-bottom-left-radius: 20px; 
+            border-bottom-right-radius: 20px; 
+            z-index: 10; 
+        }
+        
+        /* Floating Bottom Nav */
+        .floating-nav {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            border-radius: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold mb-2">App Store / Google Play 截圖產生器</h1>
+        <p class="text-gray-400">說明：AI 繪圖模型無法精準產生特定的 UI 文字與排版。因此我為您製作了這個 HTML 網頁。請將瀏覽器全螢幕，並使用截圖工具 (Mac: Cmd+Shift+4) 將下方三個畫面分別截圖，即可直接用於 App Store 上架！</p>
+    </div>
+
+    <div class="flex gap-10 overflow-x-auto pb-10">
+        
+        <!-- Screenshot 1: Home Screen -->
+        <div class="screenshot-container bg-gradient-to-br from-green-700 to-green-900">
+            <div class="pt-16 px-8 text-center">
+                <h1 class="text-4xl font-extrabold mb-4 tracking-tight text-white">掌握每日菜價</h1>
+                <p class="text-green-200 text-xl font-medium">最新批發行情，一手掌握</p>
+            </div>
+            <div class="device-frame">
+                <div class="notch"></div>
+                <div class="p-6 pt-16 h-full flex flex-col gap-4">
+                    <!-- Alert Card -->
+                    <div class="liquid-glass rounded-2xl p-4 border-l-4 border-l-red-500">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-red-600 font-bold">⚠️ 價格異常警報</span>
+                        </div>
+                        <p class="text-green-900 text-sm font-medium">高麗菜價格較昨日上漲 15%，建議暫緩採購。</p>
+                    </div>
+                    
+                    <!-- Chart Card -->
+                    <div class="liquid-glass rounded-2xl p-4">
+                        <h3 class="text-green-900 font-bold mb-4">AI 價格趨勢預測</h3>
+                        <div class="h-32 relative flex items-end justify-between gap-2">
+                            <div class="w-1/6 bg-green-600/40 rounded-t-md h-1/2"></div>
+                            <div class="w-1/6 bg-green-600/50 rounded-t-md h-3/5"></div>
+                            <div class="w-1/6 bg-green-600/60 rounded-t-md h-4/5"></div>
+                            <div class="w-1/6 bg-green-600/80 rounded-t-md h-full"></div>
+                            <div class="w-1/6 bg-orange-400/80 rounded-t-md h-5/6 border-t-2 border-dashed border-orange-600"></div>
+                        </div>
+                    </div>
+
+                    <!-- List Item -->
+                    <div class="liquid-glass rounded-2xl p-4 flex justify-between items-center">
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">青江菜</h4>
+                            <p class="text-green-700 text-sm">均價: $25.0 / kg</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center text-green-800">
+                            🔊
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bottom Nav -->
+                <div class="floating-nav liquid-glass p-4 flex justify-around items-center">
+                    <div class="text-green-900 font-bold flex flex-col items-center"><span class="text-xl">🏠</span><span class="text-[10px] mt-1">首頁</span></div>
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">❤️</span><span class="text-[10px] mt-1">收藏</span></div>
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">⚙️</span><span class="text-[10px] mt-1">設定</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot 2: Favorites Screen -->
+        <div class="screenshot-container bg-gradient-to-br from-emerald-600 to-teal-900">
+            <div class="pt-16 px-8 text-center">
+                <h1 class="text-4xl font-extrabold mb-4 tracking-tight text-white">自訂目標追蹤</h1>
+                <p class="text-emerald-200 text-xl font-medium">達標即時提醒，買在最低點</p>
+            </div>
+            <div class="device-frame">
+                <div class="notch"></div>
+                <div class="p-6 pt-16 h-full flex flex-col gap-4">
+                    <h2 class="text-green-900 font-bold text-2xl mb-2">我的收藏</h2>
+                    
+                    <!-- Reached Target -->
+                    <div class="liquid-glass rounded-2xl p-4 flex justify-between items-center">
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">空心菜</h4>
+                            <p class="text-green-700 text-sm">目前: $18.0 | 目標: $20.0</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-orange-500 text-2xl mb-1">🔔</span>
+                            <span class="text-orange-600 text-[10px] font-bold">已達標！</span>
+                        </div>
+                    </div>
+
+                    <!-- Tracking -->
+                    <div class="liquid-glass rounded-2xl p-4 flex justify-between items-center opacity-80">
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">牛番茄</h4>
+                            <p class="text-green-700 text-sm">目前: $65.0 | 目標: $50.0</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-green-600 text-2xl mb-1">🔕</span>
+                            <span class="text-green-700 text-[10px] font-bold">追蹤中</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Nav -->
+                <div class="floating-nav liquid-glass p-4 flex justify-around items-center">
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">🏠</span><span class="text-[10px] mt-1">首頁</span></div>
+                    <div class="text-green-900 font-bold flex flex-col items-center"><span class="text-xl">❤️</span><span class="text-[10px] mt-1">收藏</span></div>
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">⚙️</span><span class="text-[10px] mt-1">設定</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot 3: Settings & TTS -->
+        <div class="screenshot-container bg-gradient-to-br from-teal-700 to-green-900">
+            <div class="pt-16 px-8 text-center">
+                <h1 class="text-4xl font-extrabold mb-4 tracking-tight text-white">多國語音播報</h1>
+                <p class="text-teal-200 text-xl font-medium">支援印尼語、越南語切換</p>
+            </div>
+            <div class="device-frame">
+                <div class="notch"></div>
+                <div class="p-6 pt-16 h-full flex flex-col gap-4">
+                    <h2 class="text-green-900 font-bold text-2xl mb-2">設定</h2>
+                    
+                    <div class="liquid-glass rounded-2xl p-4 flex items-center gap-4">
+                        <div class="text-2xl">🌐</div>
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">語言與語音</h4>
+                            <p class="text-green-700 text-sm">切換印尼語/越南語及語音速度</p>
+                        </div>
+                    </div>
+
+                    <div class="liquid-glass rounded-2xl p-4 flex items-center gap-4">
+                        <div class="text-2xl">📱</div>
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">推播通知設定</h4>
+                            <p class="text-green-700 text-sm">管理價格異常與達標提醒</p>
+                        </div>
+                    </div>
+
+                    <div class="liquid-glass rounded-2xl p-4 flex items-center gap-4">
+                        <div class="text-2xl">☁️</div>
+                        <div>
+                            <h4 class="text-green-900 font-bold text-lg">離線快取狀態</h4>
+                            <p class="text-green-700 text-sm">上次同步時間: 剛剛</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Nav -->
+                <div class="floating-nav liquid-glass p-4 flex justify-around items-center">
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">🏠</span><span class="text-[10px] mt-1">首頁</span></div>
+                    <div class="text-green-600 flex flex-col items-center"><span class="text-xl">❤️</span><span class="text-[10px] mt-1">收藏</span></div>
+                    <div class="text-green-900 font-bold flex flex-col items-center"><span class="text-xl">⚙️</span><span class="text-[10px] mt-1">設定</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
