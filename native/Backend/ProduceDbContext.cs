@@ -10,12 +10,32 @@ namespace ProduceApi.Data
         // Define tables for the backend database
         public DbSet<UserFavorite> UserFavorites { get; set; }
         public DbSet<PriceHistory> PriceHistories { get; set; }
+        public DbSet<CommunityPrice> CommunityPrices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserFavorite>()
                 .HasKey(uf => new { uf.UserId, uf.ProduceId });
         }
+    }
+
+    public class CommunityPrice
+    {
+        [Key]
+        public int Id { get; set; }
+        
+        [Required]
+        public string CropCode { get; set; }
+        
+        public string CropName { get; set; }
+        
+        public string MarketName { get; set; }
+        
+        public double RetailPrice { get; set; }
+        
+        public string UserId { get; set; }
+        
+        public System.DateTime ReportDate { get; set; }
     }
 
     public class UserFavorite

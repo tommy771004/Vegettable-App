@@ -21,6 +21,9 @@ builder.Services.AddHttpClient<ProduceService>();
 // 3. 註冊背景同步服務 (每天定時抓取政府資料)
 builder.Services.AddHostedService<ProduceSyncWorker>();
 
+// 新增功能：主動式推播通知 (Push Notifications)
+builder.Services.AddHostedService<ProduceApi.PriceAlertWorker>();
+
 // 4. 註冊 Controllers
 builder.Services.AddControllers();
 

@@ -171,4 +171,69 @@ class ProduceService {
             completion(true)
         }.resume()
     }
+
+    // 新增功能：社群回報機制 (Community Retail Price)
+    func reportCommunityPrice(priceDto: CommunityPriceDto, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "\(baseURL)/community-price") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        do {
+            let encoder = JSONEncoder()
+            request.httpBody = try encoder.encode(priceDto)
+        } catch {
+            completion(false)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 || httpResponse.statusCode == 201 else {
+                completion(false)
+                return
+            }
+            completion(true)
+        }.resume()
+    }
+
+    func getCommunityPrices(cropCode: String, completion: @escaping (Result<[CommunityPriceDto], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/community-price/\(cropCode)") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([CommunityPriceDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
+    func getSeasonalCrops(completion: @escaping (Result<[SeasonalCropDto], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/seasonal") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([SeasonalCropDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
 }

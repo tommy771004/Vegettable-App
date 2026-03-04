@@ -56,4 +56,23 @@ namespace ProduceApi.Models
         public double CurrentPrice { get; set; }
         public bool IsAlertTriggered { get; set; }
     }
+
+    // 新增功能：社群回報機制 (Community Retail Price) 的 DTO
+    public class CommunityPriceDto
+    {
+        public string CropCode { get; set; }
+        public string CropName { get; set; }
+        public string MarketName { get; set; }
+        public double RetailPrice { get; set; }
+        public string ReportDate { get; set; }
+    }
+
+    // 新增功能：當季盛產日曆 (Seasonal Crop Calendar) 的 DTO
+    public class SeasonalCropDto
+    {
+        public string CropCode { get; set; }
+        public string CropName { get; set; }
+        public string Season { get; set; }
+        public string Description { get; set; }
+    }
 }

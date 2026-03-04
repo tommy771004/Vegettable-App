@@ -99,3 +99,18 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
      - 新增 `DELETE /api/produce/favorites/{produceId}`：允許使用者移除收藏。
    - **Android/iOS (`ProduceDto.java`, `ProduceDto.swift`)**：新增 `FavoriteAlertDto`，確保前後端資料結構完全一致。
    - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getFavorites` 與 `removeFavorite` 方法，讓前端可以輕鬆管理收藏並顯示價格提醒。
+
+5. **主動式推播通知 (Push Notifications)**：
+   - **Backend (`PriceAlertWorker.cs`)**：新增 `BackgroundService`，每天清晨自動掃描所有使用者的 `TargetPrice`，一旦達標，直接發送手機推播（模擬 FCM/APNs）。
+
+6. **離線快取機制 (Offline Caching)**：
+   - **Android (`ProduceEntity.java`, `ProduceDao.java`, `ProduceDatabase.java`)**：導入 `Room Database`，在有網路時自動快取「我的收藏」與「今日熱門農產品」的最新價格。
+   - **iOS (`ProduceModel.swift`)**：導入 `SwiftData` 進行本地快取。
+
+7. **社群回報機制 (Community Retail Price)**：
+   - **Backend (`ProduceController.cs`)**：新增 `POST /api/produce/community-price` 與 `GET /api/produce/community-price/{cropCode}` 讓使用者回報與查詢零售價。
+   - **Android/iOS (`CommunityPriceDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法。
+
+8. **當季盛產日曆 (Seasonal Crop Calendar)**：
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/seasonal`，根據目前的月份，自動篩選出盛產的農產品清單。
+   - **Android/iOS (`SeasonalCropDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法。

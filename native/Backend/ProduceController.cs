@@ -280,6 +280,84 @@ namespace ProduceApi.Controllers
 
             return Ok(new { Message = "Favorite removed successfully" });
         }
+
+        // 新增功能：社群回報機制 (Community Retail Price)
+        [HttpPost("community-price")]
+        public async Task<IActionResult> ReportCommunityPrice([FromBody] CommunityPriceDto request)
+        {
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
+            var newPrice = new CommunityPrice
+            {
+                CropCode = request.CropCode,
+                CropName = request.CropName,
+                MarketName = request.MarketName,
+                RetailPrice = request.RetailPrice,
+                UserId = userId,
+                ReportDate = System.DateTime.UtcNow
+            };
+
+            _dbContext.CommunityPrices.Add(newPrice);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { Message = "Community price reported successfully" });
+        }
+
+        [HttpGet("community-price/{cropCode}")]
+        public async Task<IActionResult> GetCommunityPrices(string cropCode)
+        {
+            var prices = await _dbContext.CommunityPrices
+                .Where(p => p.CropCode == cropCode)
+                .OrderByDescending(p => p.ReportDate)
+                .Take(20)
+                .Select(p => new CommunityPriceDto
+                {
+                    CropCode = p.CropCode,
+                    CropName = p.CropName,
+                    MarketName = p.MarketName,
+                    RetailPrice = p.RetailPrice,
+                    ReportDate = p.ReportDate.ToString("yyyy-MM-dd HH:mm")
+                })
+                .ToListAsync();
+
+            return Ok(prices);
+        }
+
+        // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
+        [HttpGet("seasonal")]
+        public IActionResult GetSeasonalCrops()
+        {
+            int currentMonth = System.DateTime.Now.Month;
+            var seasonalCrops = new List<SeasonalCropDto>();
+
+            // 簡易模擬當季農產品資料庫
+            if (currentMonth >= 3 && currentMonth <= 5)
+            {
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "LA1", CropName = "甘藍", Season = "春季", Description = "春季高麗菜鮮甜多汁" });
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "FJ1", CropName = "番茄", Season = "春季", Description = "春季番茄酸甜適中" });
+            }
+            else if (currentMonth >= 6 && currentMonth <= 8)
+            {
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "T1", CropName = "西瓜", Season = "夏季", Description = "消暑解渴最佳選擇" });
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "P1", CropName = "木瓜", Season = "夏季", Description = "夏季木瓜香甜可口" });
+            }
+            else if (currentMonth >= 9 && currentMonth <= 11)
+            {
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "F1", CropName = "柑桔", Season = "秋季", Description = "秋季柑桔富含維他命C" });
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "S1", CropName = "葡萄", Season = "秋季", Description = "秋季葡萄果肉飽滿" });
+            }
+            else
+            {
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "SA1", CropName = "蘿蔔", Season = "冬季", Description = "冬季蘿蔔賽人蔘" });
+                seasonalCrops.Add(new SeasonalCropDto { CropCode = "LH1", CropName = "菠菜", Season = "冬季", Description = "冬季菠菜營養豐富" });
+            }
+
+            return Ok(seasonalCrops);
+        }
     }
 
     public class FavoriteRequest

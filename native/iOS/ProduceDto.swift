@@ -26,3 +26,20 @@ struct FavoriteAlertDto: Codable {
     let currentPrice: Double
     let isAlertTriggered: Bool
 }
+
+// 新增功能：社群回報機制 (Community Retail Price) 的 DTO
+struct CommunityPriceDto: Codable {
+    let cropCode: String
+    let cropName: String
+    let marketName: String
+    let retailPrice: Double
+    let reportDate: String? // Optional since it might not be sent when reporting
+}
+
+// 新增功能：當季盛產日曆 (Seasonal Crop Calendar) 的 DTO
+struct SeasonalCropDto: Codable {
+    let cropCode: String
+    let cropName: String
+    let season: String
+    let description: String
+}

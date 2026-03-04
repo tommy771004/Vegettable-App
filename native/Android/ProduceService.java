@@ -125,4 +125,37 @@ public class ProduceService {
         Request request = new Request.Builder().url(url).delete().build();
         client.newCall(request).enqueue(callback);
     }
+
+    // 新增功能：社群回報機制 (Community Retail Price)
+    public void reportCommunityPrice(CommunityPriceDto priceDto, Callback callback) {
+        try {
+            String json = gson.toJson(priceDto);
+            RequestBody body = RequestBody.create(
+                json,
+                MediaType.parse("application/json; charset=utf-8")
+            );
+
+            Request request = new Request.Builder()
+                    .url(BASE_URL + "/community-price")
+                    .post(body)
+                    .build();
+
+            client.newCall(request).enqueue(callback);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void getCommunityPrices(String cropCode, Callback callback) {
+        String url = BASE_URL + "/community-price/" + cropCode;
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
+    // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
+    public void getSeasonalCrops(Callback callback) {
+        String url = BASE_URL + "/seasonal";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
 }
