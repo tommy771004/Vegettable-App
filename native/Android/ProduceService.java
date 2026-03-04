@@ -2,6 +2,7 @@ package com.example.produce.data;
 
 import com.example.produce.models.PaginatedResponse;
 import com.example.produce.models.ProduceDto;
+import com.example.produce.network.AuthInterceptor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -18,17 +19,19 @@ import org.json.JSONObject;
 
 public class ProduceService {
     private static final String BASE_URL = "https://api.yourbackend.com/api/produce";
-    private OkHttpClient client = new OkHttpClient();
+    
+    // 邏輯修正：將 AuthInterceptor 注入 OkHttpClient，自動帶上 X-User-Id
+    private OkHttpClient client = new OkHttpClient.Builder()
+            .addInterceptor(new AuthInterceptor("user-device-uuid-12345"))
+            .build();
+            
     private Gson gson = new Gson();
 
-    // 定義自訂的 Callback 介面，讓 UI 層可以直接拿到解析好的 Java 物件
     public interface ProduceDataCallback {
         void onSuccess(PaginatedResponse<ProduceDto> response);
         void onFailure(Exception e);
     }
 
-    // 邏輯修正：加入分頁與搜尋參數，並使用 Gson 自動將 JSON 轉為 Java Object (ProduceDto)
-    // 解決問題：原本只回傳 String，App 端需要寫大量 try-catch 解析 JSON，且容易發生 NullPointerException。
     public void fetchProduceData(String keyword, int page, ProduceDataCallback callback) {
         String url = BASE_URL + "/daily-prices?keyword=" + (keyword != null ? keyword : "") + "&page=" + page + "&pageSize=20";
         Request request = new Request.Builder().url(url).build();
@@ -49,7 +52,6 @@ public class ProduceService {
                 String responseData = response.body().string();
                 
                 try {
-                    // 自動將後端的 JSON 映射到 Java 的 PaginatedResponse<ProduceDto>
                     Type type = new TypeToken<PaginatedResponse<ProduceDto>>(){}.getType();
                     PaginatedResponse<ProduceDto> result = gson.fromJson(responseData, type);
                     callback.onSuccess(result);
@@ -66,10 +68,10 @@ public class ProduceService {
         client.newCall(request).enqueue(callback);
     }
 
-    public void syncFavorite(String userId, String produceId, double targetPrice, Callback callback) {
+    // 邏輯修正：移除 body 中的 userId，因為已經透過 AuthInterceptor 放在 Header 中了
+    public void syncFavorite(String produceId, double targetPrice, Callback callback) {
         try {
             JSONObject json = new JSONObject();
-            json.put("userId", userId);
             json.put("produceId", produceId);
             json.put("targetPrice", targetPrice);
 

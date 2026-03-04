@@ -4,6 +4,9 @@ class ProduceService {
     static let shared = ProduceService()
     private let baseURL = "https://api.yourbackend.com/api/produce"
     
+    // 模擬使用者的 Device ID 或 UUID
+    private let deviceId = "user-device-uuid-12345"
+    
     private init() {}
     
     // 邏輯修正：加入分頁與搜尋參數，並使用 Codable 自動將 JSON 轉為 Swift Struct (ProduceDto)
@@ -14,7 +17,10 @@ class ProduceService {
         
         guard let url = URL(string: urlString) else { return }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id") // 注入身分驗證 Header
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error { 
                 completion(.failure(error))
                 return 
@@ -37,21 +43,25 @@ class ProduceService {
         let urlString = "\(baseURL)/history/\(produceId)"
         guard let url = URL(string: urlString) else { return }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id") // 注入身分驗證 Header
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error { completion(.failure(error)); return }
             if let data = data { completion(.success(data)) }
         }.resume()
     }
     
-    func syncFavorite(userId: String, produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void) {
+    // 邏輯修正：移除 body 中的 userId，因為已經放在 Header 中了
+    func syncFavorite(produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void) {
         guard let url = URL(string: "\(baseURL)/favorites") else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id") // 注入身分驗證 Header
         
         let body: [String: Any] = [
-            "userId": userId,
             "produceId": produceId,
             "targetPrice": targetPrice
         ]

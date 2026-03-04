@@ -79,8 +79,17 @@ namespace ProduceApi.Controllers
         [HttpPost("favorites")]
         public async Task<IActionResult> AddFavorite([FromBody] FavoriteRequest request)
         {
+            // 邏輯修正：從 Header 中讀取 X-User-Id，而不是依賴前端在 Body 傳遞。
+            // 解決問題：這樣可以防止惡意使用者竄改 Body 中的 UserId 去修改別人的收藏。
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
             var existingFavorite = await _dbContext.UserFavorites
-                .FirstOrDefaultAsync(f => f.UserId == request.UserId && f.ProduceId == request.ProduceId);
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.ProduceId == request.ProduceId);
 
             if (existingFavorite != null)
             {
@@ -91,7 +100,7 @@ namespace ProduceApi.Controllers
             {
                 _dbContext.UserFavorites.Add(new UserFavorite
                 {
-                    UserId = request.UserId,
+                    UserId = userId,
                     ProduceId = request.ProduceId,
                     TargetPrice = request.TargetPrice
                 });
@@ -104,7 +113,7 @@ namespace ProduceApi.Controllers
 
     public class FavoriteRequest
     {
-        public string UserId { get; set; }
+        // 邏輯修正：移除 UserId，因為已經改由 Header 傳遞
         public string ProduceId { get; set; }
         public double TargetPrice { get; set; }
     }
