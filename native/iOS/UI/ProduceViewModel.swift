@@ -12,9 +12,19 @@ struct PricePredictionDto: Identifiable {
     let date: String
     let predictedPrice: Double
 }
+struct FavoriteAlertDto: Identifiable {
+    let id = UUID()
+    let cropCode: String
+    let cropName: String
+    let currentPrice: Double
+    let targetPrice: Double
+    let isReached: Bool
+}
 
 @MainActor
 class ProduceViewModel: ObservableObject {
+    @Published var favorites: [FavoriteAlertDto] = []
+
     @Published var dailyPrices: [ProduceDto] = []
     @Published var topVolume: [ProduceDto] = []
     @Published var anomalies: [PriceAnomalyDto] = []
@@ -50,6 +60,13 @@ class ProduceViewModel: ObservableObject {
                 PricePredictionDto(date: "10/06", predictedPrice: 33.0),
                 PricePredictionDto(date: "10/07", predictedPrice: 30.0),
                 PricePredictionDto(date: "10/08", predictedPrice: 28.5)
+            ]
+            
+            // 模擬取得我的收藏與追蹤資料
+            self.favorites = [
+                FavoriteAlertDto(cropCode: "LA1", cropName: "甘藍 (初秋)", currentPrice: 22.5, targetPrice: 25.0, isReached: true), // 已達標
+                FavoriteAlertDto(cropCode: "FJ1", cropName: "番茄 (黑柿)", currentPrice: 45.0, targetPrice: 35.0, isReached: false),
+                FavoriteAlertDto(cropCode: "SE1", cropName: "青蔥 (粉蔥)", currentPrice: 120.0, targetPrice: 80.0, isReached: false)
             ]
         } catch {
             print("Error fetching dashboard data: \(error)")

@@ -12,8 +12,13 @@ import kotlinx.coroutines.launch
 // 補充 DTO 定義 (供圖表使用)
 data class HistoricalPriceDto(val date: String, val avgPrice: Float)
 data class PricePredictionDto(val date: String, val predictedPrice: Float)
+data class FavoriteAlertDto(val cropCode: String, val cropName: String, val currentPrice: Float, val targetPrice: Float, val isReached: Boolean)
 
 class ProduceViewModel(private val produceService: ProduceService) : ViewModel() {
+    private val _favorites = MutableStateFlow<List<FavoriteAlertDto>>(emptyList())
+    val favorites: StateFlow<List<FavoriteAlertDto>> = _favorites
+
+
     private val _dailyPrices = MutableStateFlow<List<ProduceDto>>(emptyList())
     val dailyPrices: StateFlow<List<ProduceDto>> = _dailyPrices
 
@@ -55,6 +60,13 @@ class ProduceViewModel(private val produceService: ProduceService) : ViewModel()
                     PricePredictionDto("10/06", 33.0f),
                     PricePredictionDto("10/07", 30.0f),
                     PricePredictionDto("10/08", 28.5f)
+                )
+
+                // 模擬取得我的收藏與追蹤資料
+                _favorites.value = listOf(
+                    FavoriteAlertDto("LA1", "甘藍 (初秋)", 22.5f, 25.0f, true), // 已達標 (低於目標價)
+                    FavoriteAlertDto("FJ1", "番茄 (黑柿)", 45.0f, 35.0f, false), // 未達標
+                    FavoriteAlertDto("SE1", "青蔥 (粉蔥)", 120.0f, 80.0f, false) // 未達標
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
