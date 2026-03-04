@@ -125,14 +125,18 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
     - **iOS (`TextToSpeechHelper.swift`)**：導入 `AVFoundation` 的 `AVSpeechSynthesizer`，實現跨語系的語音播報輔助。
 
 11. **前端 UI 介面實作 (UI Layer)**：
-    - **UI 風格 (Liquid Glass / 毛玻璃)**：參考 iOS 18 質感，全站採用淡綠色漸層底色，並搭配半透明、帶有模糊效果與白色細邊框的卡片設計，營造清新且具現代感的視覺體驗。
+    - **UI 風格 (iOS 26 Liquid Glass / 毛玻璃)**：參考未來感十足的 iOS 26 質感，全站採用淡綠色漸層底色，並搭配半透明、帶有模糊效果與白色細邊框的卡片設計。底部導覽列採用「懸浮式毛玻璃 (Floating Liquid Glass)」設計，營造清新且極具現代感的視覺體驗。
     - **Android (Jetpack Compose)**：
+      - `MainScreen.kt`：實作懸浮式底部導覽列 (Bottom Navigation)，串聯首頁、收藏與設定頁面。
       - `ProduceViewModel.kt`：使用 `StateFlow` 綁定資料，並提供歷史價格、預測數據與收藏清單。
       - `HomeScreen.kt`：實作 `liquidGlass()` Modifier 達成毛玻璃效果。包含異常警報、熱門交易、以及帶有語音播報的菜價列表。
       - `FavoritesScreen.kt`：實作「我的收藏」頁面，延續 Liquid Glass 風格，並根據目標價是否達成顯示不同的鈴鐺狀態 (已達標/追蹤中)。
+      - `SettingsScreen.kt`：實作「設定」頁面，包含推播、語言、離線快取等選項。
       - `PriceTrendChart.kt`：使用 `Canvas` 繪製折線圖，實線代表歷史價格，虛線 (橘色) 代表 AI 預測趨勢。
     - **iOS (SwiftUI)**：
+      - `MainTabView.swift`：實作懸浮式底部導覽列，完美融合 `.ultraThinMaterial` 打造 iOS 26 質感。
       - `ProduceViewModel.swift`：使用 `@MainActor` 與 `@Published` 進行狀態管理，包含收藏清單資料。
       - `HomeScreen.swift`：使用 `.ultraThinMaterial` 搭配淡綠色背景實作毛玻璃質感 (`LiquidGlassModifier`)。
       - `FavoritesScreen.swift`：實作「我的收藏」頁面，延續毛玻璃質感，並使用 SF Symbols 呈現目標價追蹤狀態。
+      - `SettingsScreen.swift`：實作「設定」頁面，提供各項 App 設定選項。
       - `PriceTrendView.swift`：導入 Apple 原生 `Charts` 框架，使用 `LineMark` 繪製歷史與預測價格走勢圖。
