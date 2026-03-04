@@ -403,7 +403,7 @@ namespace ProduceApi.Controllers
         public async Task<ActionResult<IEnumerable<PriceAnomalyDto>>> GetPriceAnomalies()
         {
             // 找出最近的兩天有交易紀錄的日期
-            var latestDates = await _context.PriceHistories
+            var latestDates = await _dbContext.PriceHistories
                 .Select(p => p.Date)
                 .Distinct()
                 .OrderByDescending(d => d)
@@ -415,28 +415,28 @@ namespace ProduceApi.Controllers
             var today = latestDates[0];
             var yesterday = latestDates[1];
 
-            var todayPrices = await _context.PriceHistories.Where(p => p.Date == today).ToDictionaryAsync(p => p.CropCode);
-            var yesterdayPrices = await _context.PriceHistories.Where(p => p.Date == yesterday).ToDictionaryAsync(p => p.CropCode);
+            var todayPrices = await _dbContext.PriceHistories.Where(p => p.Date == today).ToDictionaryAsync(p => p.ProduceId);
+            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
 
             var anomalies = new List<PriceAnomalyDto>();
             foreach (var tp in todayPrices.Values)
             {
-                if (yesterdayPrices.TryGetValue(tp.CropCode, out var yp))
+                if (yesterdayPrices.TryGetValue(tp.ProduceId, out var yp))
                 {
-                    if (yp.AvgPrice > 0)
+                    if (yp.AveragePrice > 0)
                     {
-                        var increase = (tp.AvgPrice - yp.AvgPrice) / yp.AvgPrice;
+                        var increase = (tp.AveragePrice - yp.AveragePrice) / yp.AveragePrice;
                         // 如果單日漲幅超過 50% (0.5)，則視為價格異常暴漲
                         if (increase >= 0.5) 
                         {
                             anomalies.Add(new PriceAnomalyDto
                             {
-                                CropCode = tp.CropCode,
-                                CropName = tp.CropName,
-                                CurrentPrice = tp.AvgPrice,
-                                PreviousPrice = yp.AvgPrice,
+                                CropCode = tp.ProduceId,
+                                CropName = tp.ProduceName,
+                                CurrentPrice = tp.AveragePrice,
+                                PreviousPrice = yp.AveragePrice,
                                 IncreasePercentage = System.Math.Round(increase * 100, 2),
-                                AlertMessage = $"⚠️ {tp.CropName} 價格單日暴漲 {System.Math.Round(increase * 100, 0)}%！建議暫緩購買或尋找替代品。"
+                                AlertMessage = $"⚠️ {tp.ProduceName} 價格單日暴漲 {System.Math.Round(increase * 100, 0)}%！建議暫緩購買或尋找替代品。"
                             });
                         }
                     }
@@ -445,6 +445,53 @@ namespace ProduceApi.Controllers
 
             // 依據漲幅排序，漲最多的排前面
             return Ok(anomalies.OrderByDescending(a => a.IncreasePercentage));
+        }
+
+        // 新增功能：颱風 / 暴雨菜價預警推播 (Weather & Price Alert)
+        [HttpGet("weather-alerts")]
+        public IActionResult GetWeatherAlerts()
+        {
+            // 模擬串接中央氣象署 API，判斷是否有颱風或豪雨特報
+            bool hasTyphoonWarning = true; // 模擬目前有颱風警報
+            
+            if (hasTyphoonWarning)
+            {
+                return Ok(new {
+                    AlertType = "Typhoon",
+                    Severity = "High",
+                    Title = "⚠️ 颱風即將登陸！",
+                    Message = "根據 AI 預測，葉菜類明日可能上漲 30%，建議今日提早採買高麗菜、青江菜！",
+                    AffectedCrops = new[] { "高麗菜", "青江菜", "小白菜" }
+                });
+            }
+            
+            return Ok(new { AlertType = "None" });
+        }
+
+        // 新增功能：「今天吃什麼？」省錢食譜推薦 (Budget Recipe Generator)
+        [HttpGet("budget-recipes")]
+        public IActionResult GetBudgetRecipes()
+        {
+            // 模擬系統抓出今日跌幅最大 / 最便宜的 3 樣當季蔬菜，並推薦食譜
+            var recipes = new List<object>
+            {
+                new {
+                    RecipeName = "番茄炒蛋",
+                    MainIngredients = new[] { "番茄", "雞蛋" },
+                    Reason = "今日番茄盛產大跌價，每台斤只要 25 元！",
+                    ImageUrl = "🍅", // 暫用 Emoji 替代圖片
+                    Steps = new[] { "1. 番茄切塊", "2. 雞蛋打散炒熟", "3. 加入番茄拌炒", "4. 加點番茄醬與糖調味" }
+                },
+                new {
+                    RecipeName = "蒜炒高麗菜",
+                    MainIngredients = new[] { "高麗菜", "蒜頭" },
+                    Reason = "高麗菜價格平穩，營養價值高！",
+                    ImageUrl = "🥬",
+                    Steps = new[] { "1. 高麗菜洗淨切片", "2. 蒜頭爆香", "3. 放入高麗菜大火快炒", "4. 加鹽調味即可" }
+                }
+            };
+
+            return Ok(recipes);
         }
     }
 
