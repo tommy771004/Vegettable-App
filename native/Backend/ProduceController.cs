@@ -214,6 +214,72 @@ namespace ProduceApi.Controllers
             await _dbContext.SaveChangesAsync();
             return Ok(new { Message = "Favorite synced successfully" });
         }
+
+        // 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts)
+        // 取得使用者的收藏清單，並比對今日最新價格，判斷是否達到目標價格 (觸發提醒)
+        [HttpGet("favorites")]
+        public async Task<IActionResult> GetFavorites()
+        {
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
+            var favorites = await _dbContext.UserFavorites
+                .Where(f => f.UserId == userId)
+                .ToListAsync();
+
+            if (!favorites.Any())
+            {
+                return Ok(new List<FavoriteAlertDto>());
+            }
+
+            // 取得最新價格資料
+            string rawData = await _produceService.FetchProduceDataAsync("ALL");
+            var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
+
+            var result = new List<FavoriteAlertDto>();
+            foreach (var fav in favorites)
+            {
+                // 假設 ProduceId 是 CropCode，並取得該作物的最新平均價格
+                var latestData = moaItems.FirstOrDefault(m => m.CropCode == fav.ProduceId);
+                double currentPrice = latestData?.AvgPrice ?? 0;
+                string produceName = latestData?.CropName ?? fav.ProduceName ?? "Unknown";
+
+                result.Add(new FavoriteAlertDto
+                {
+                    ProduceId = fav.ProduceId,
+                    ProduceName = produceName,
+                    TargetPrice = fav.TargetPrice,
+                    CurrentPrice = currentPrice,
+                    IsAlertTriggered = currentPrice > 0 && currentPrice <= fav.TargetPrice
+                });
+            }
+
+            return Ok(result);
+        }
+
+        [HttpDelete("favorites/{produceId}")]
+        public async Task<IActionResult> RemoveFavorite(string produceId)
+        {
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
+            var favorite = await _dbContext.UserFavorites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.ProduceId == produceId);
+
+            if (favorite != null)
+            {
+                _dbContext.UserFavorites.Remove(favorite);
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return Ok(new { Message = "Favorite removed successfully" });
+        }
     }
 
     public class FavoriteRequest

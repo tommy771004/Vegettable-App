@@ -92,3 +92,10 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
 3. **熱門交易農產品 (Top Volume Crops)**：
    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/top-volume`，取得今日交易量最大的前 10 名農產品，幫助使用者了解目前市場上最熱銷、當季的農產品。
    - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getTopVolumeCrops` 方法，讓前端可以輕鬆呼叫熱門農產品 API。
+
+4. **我的收藏與價格提醒 (My Favorites & Price Alerts)**：
+   - **Backend (`ProduceController.cs`)**：
+     - 新增 `GET /api/produce/favorites`：取得使用者的收藏清單，並自動比對今日最新價格，判斷是否達到使用者設定的目標價格 (`IsAlertTriggered`)。
+     - 新增 `DELETE /api/produce/favorites/{produceId}`：允許使用者移除收藏。
+   - **Android/iOS (`ProduceDto.java`, `ProduceDto.swift`)**：新增 `FavoriteAlertDto`，確保前後端資料結構完全一致。
+   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getFavorites` 與 `removeFavorite` 方法，讓前端可以輕鬆管理收藏並顯示價格提醒。

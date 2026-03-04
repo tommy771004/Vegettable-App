@@ -17,3 +17,12 @@ struct PaginatedResponse<T: Codable>: Codable {
     let totalItems: Int
     let data: [T]
 }
+
+// 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts) 的 DTO
+struct FavoriteAlertDto: Codable {
+    let produceId: String
+    let produceName: String
+    let targetPrice: Double
+    let currentPrice: Double
+    let isAlertTriggered: Bool
+}

@@ -46,4 +46,14 @@ namespace ProduceApi.Models
         public int TotalItems { get; set; }
         public System.Collections.Generic.List<T> Data { get; set; }
     }
+
+    // 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts) 的 DTO
+    public class FavoriteAlertDto
+    {
+        public string ProduceId { get; set; }
+        public string ProduceName { get; set; }
+        public double TargetPrice { get; set; }
+        public double CurrentPrice { get; set; }
+        public bool IsAlertTriggered { get; set; }
+    }
 }

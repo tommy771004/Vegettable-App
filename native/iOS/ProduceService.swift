@@ -133,4 +133,42 @@ class ProduceService {
             completion(true)
         }.resume()
     }
+    
+    // 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts)
+    func getFavorites(completion: @escaping (Result<[FavoriteAlertDto], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/favorites") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([FavoriteAlertDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    // 新增功能：移除收藏 (Remove Favorite)
+    func removeFavorite(produceId: String, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "\(baseURL)/favorites/\(produceId)") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                completion(false)
+                return
+            }
+            completion(true)
+        }.resume()
+    }
 }

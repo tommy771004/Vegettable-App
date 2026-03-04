@@ -111,4 +111,18 @@ public class ProduceService {
             e.printStackTrace();
         }
     }
+
+    // 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts)
+    public void getFavorites(Callback callback) {
+        String url = BASE_URL + "/favorites";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
+    // 新增功能：移除收藏 (Remove Favorite)
+    public void removeFavorite(String produceId, Callback callback) {
+        String url = BASE_URL + "/favorites/" + produceId;
+        Request request = new Request.Builder().url(url).delete().build();
+        client.newCall(request).enqueue(callback);
+    }
 }
