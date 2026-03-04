@@ -17,11 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun WeatherAlertCard(modifier: Modifier = Modifier) {
-    // 模擬從後端 GET /api/produce/weather-alerts 取得的資料
-    val alertTitle = "⚠️ 颱風即將登陸！"
-    val alertMessage = "根據 AI 預測，葉菜類明日可能上漲 30%，建議今日提早採買高麗菜、青江菜！"
-
+fun WeatherAlertCard(
+    modifier: Modifier = Modifier,
+    alertTitle: String = "⚠️ 颱風即將登陸！",
+    alertMessage: String = "根據 AI 預測，葉菜類明日可能上漲 30%，建議今日提早採買高麗菜、青江菜！"
+) {
     Card(
         modifier = modifier.fillMaxWidth().padding(8.dp),
         elevation = 6.dp,

@@ -54,6 +54,7 @@ namespace ProduceApi.Workers
                             if (!string.IsNullOrEmpty(item.CropCode)) {
                                 dbContext.PriceHistories.Add(new PriceHistory {
                                     ProduceId = item.CropCode,
+                                    ProduceName = item.CropName,
                                     MarketCode = item.MarketCode,
                                     AveragePrice = item.AvgPrice,
                                     RecordDate = today

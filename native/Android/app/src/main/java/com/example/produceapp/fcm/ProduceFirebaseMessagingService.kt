@@ -25,8 +25,18 @@ class ProduceFirebaseMessagingService : FirebaseMessagingService() {
     // 當 FCM Token 更新時觸發 (需將 Token 送回您的後端伺服器)
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // TODO: Send this token to your backend server
         println("New FCM Token: $token")
+        
+        val produceService = com.example.produce.data.ProduceService()
+        produceService.sendFcmToken(token, object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                println("Failed to send FCM token to backend: ${e.message}")
+            }
+
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                println("Successfully sent FCM token to backend. Response code: ${response.code}")
+            }
+        })
     }
 
     private fun showNotification(title: String, message: String) {

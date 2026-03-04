@@ -256,4 +256,44 @@ class ProduceService {
             }
         }.resume()
     }
+
+    // 新增功能：天氣預警 (Weather Alerts)
+    func getWeatherAlerts(completion: @escaping (Result<WeatherAlertDto, Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/weather-alerts") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode(WeatherAlertDto.self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    // 新增功能：省錢食譜 (Budget Recipes)
+    func getBudgetRecipes(completion: @escaping (Result<[BudgetRecipeDto], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/budget-recipes") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([BudgetRecipeDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
 }

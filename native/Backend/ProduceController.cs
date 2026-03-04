@@ -404,7 +404,7 @@ namespace ProduceApi.Controllers
         {
             // 找出最近的兩天有交易紀錄的日期
             var latestDates = await _dbContext.PriceHistories
-                .Select(p => p.Date)
+                .Select(p => p.RecordDate.Date)
                 .Distinct()
                 .OrderByDescending(d => d)
                 .Take(2)
@@ -415,8 +415,8 @@ namespace ProduceApi.Controllers
             var today = latestDates[0];
             var yesterday = latestDates[1];
 
-            var todayPrices = await _dbContext.PriceHistories.Where(p => p.Date == today).ToDictionaryAsync(p => p.ProduceId);
-            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
+            var todayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == today).ToDictionaryAsync(p => p.ProduceId);
+            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
 
             var anomalies = new List<PriceAnomalyDto>();
             foreach (var tp in todayPrices.Values)
@@ -432,11 +432,11 @@ namespace ProduceApi.Controllers
                             anomalies.Add(new PriceAnomalyDto
                             {
                                 CropCode = tp.ProduceId,
-                                CropName = tp.ProduceName,
+                                CropName = tp.ProduceName ?? "未知作物",
                                 CurrentPrice = tp.AveragePrice,
                                 PreviousPrice = yp.AveragePrice,
                                 IncreasePercentage = System.Math.Round(increase * 100, 2),
-                                AlertMessage = $"⚠️ {tp.ProduceName} 價格單日暴漲 {System.Math.Round(increase * 100, 0)}%！建議暫緩購買或尋找替代品。"
+                                AlertMessage = $"⚠️ {tp.ProduceName ?? "未知作物"} 價格單日暴漲 {System.Math.Round(increase * 100, 0)}%！建議暫緩購買或尋找替代品。"
                             });
                         }
                     }
@@ -449,20 +449,43 @@ namespace ProduceApi.Controllers
 
         // 新增功能：颱風 / 暴雨菜價預警推播 (Weather & Price Alert)
         [HttpGet("weather-alerts")]
-        public IActionResult GetWeatherAlerts()
+        public async Task<IActionResult> GetWeatherAlerts()
         {
-            // 模擬串接中央氣象署 API，判斷是否有颱風或豪雨特報
-            bool hasTyphoonWarning = true; // 模擬目前有颱風警報
-            
-            if (hasTyphoonWarning)
+            try
             {
-                return Ok(new {
-                    AlertType = "Typhoon",
-                    Severity = "High",
-                    Title = "⚠️ 颱風即將登陸！",
-                    Message = "根據 AI 預測，葉菜類明日可能上漲 30%，建議今日提早採買高麗菜、青江菜！",
-                    AffectedCrops = new[] { "高麗菜", "青江菜", "小白菜" }
-                });
+                using var client = new System.Net.Http.HttpClient();
+                var response = await client.GetAsync("https://www.cwa.gov.tw/rss/Data/cwa_warning.xml");
+                if (response.IsSuccessStatusCode)
+                {
+                    var xmlContent = await response.Content.ReadAsStringAsync();
+                    bool hasTyphoonWarning = xmlContent.Contains("颱風");
+                    bool hasHeavyRainWarning = xmlContent.Contains("豪雨") || xmlContent.Contains("大雨");
+
+                    if (hasTyphoonWarning)
+                    {
+                        return Ok(new {
+                            AlertType = "Typhoon",
+                            Severity = "High",
+                            Title = "⚠️ 颱風警報發布！",
+                            Message = "根據中央氣象署資料，目前有颱風警報。預期葉菜類將有顯著漲幅，建議提早採買耐放蔬菜（如高麗菜、根莖類）！",
+                            AffectedCrops = new[] { "高麗菜", "青江菜", "小白菜", "空心菜" }
+                        });
+                    }
+                    else if (hasHeavyRainWarning)
+                    {
+                        return Ok(new {
+                            AlertType = "HeavyRain",
+                            Severity = "Medium",
+                            Title = "🌧️ 豪大雨特報！",
+                            Message = "根據中央氣象署資料，目前有豪大雨特報。瓜果類與葉菜類易受損，價格可能波動，請留意！",
+                            AffectedCrops = new[] { "西瓜", "木瓜", "青江菜", "地瓜葉" }
+                        });
+                    }
+                }
+            }
+            catch (System.Exception)
+            {
+                // Fallback to none if API fails
             }
             
             return Ok(new { AlertType = "None" });
@@ -470,29 +493,129 @@ namespace ProduceApi.Controllers
 
         // 新增功能：「今天吃什麼？」省錢食譜推薦 (Budget Recipe Generator)
         [HttpGet("budget-recipes")]
-        public IActionResult GetBudgetRecipes()
+        public async Task<IActionResult> GetBudgetRecipes()
         {
-            // 模擬系統抓出今日跌幅最大 / 最便宜的 3 樣當季蔬菜，並推薦食譜
-            var recipes = new List<object>
+            // 找出最近的兩天有交易紀錄的日期
+            var latestDates = await _dbContext.PriceHistories
+                .Select(p => p.RecordDate.Date)
+                .Distinct()
+                .OrderByDescending(d => d)
+                .Take(2)
+                .ToListAsync();
+
+            if (latestDates.Count < 2) 
             {
-                new {
-                    RecipeName = "番茄炒蛋",
-                    MainIngredients = new[] { "番茄", "雞蛋" },
-                    Reason = "今日番茄盛產大跌價，每台斤只要 25 元！",
-                    ImageUrl = "🍅", // 暫用 Emoji 替代圖片
-                    Steps = new[] { "1. 番茄切塊", "2. 雞蛋打散炒熟", "3. 加入番茄拌炒", "4. 加點番茄醬與糖調味" }
-                },
-                new {
-                    RecipeName = "蒜炒高麗菜",
-                    MainIngredients = new[] { "高麗菜", "蒜頭" },
-                    Reason = "高麗菜價格平穩，營養價值高！",
-                    ImageUrl = "🥬",
-                    Steps = new[] { "1. 高麗菜洗淨切片", "2. 蒜頭爆香", "3. 放入高麗菜大火快炒", "4. 加鹽調味即可" }
+                return Ok(new List<object>());
+            }
+
+            var today = latestDates[0];
+            var yesterday = latestDates[1];
+
+            var todayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == today).ToDictionaryAsync(p => p.ProduceId);
+            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
+
+            var priceDrops = new List<PriceAnomalyDto>();
+            foreach (var tp in todayPrices.Values)
+            {
+                if (yesterdayPrices.TryGetValue(tp.ProduceId, out var yp))
+                {
+                    if (yp.AveragePrice > 0)
+                    {
+                        var decrease = (yp.AveragePrice - tp.AveragePrice) / yp.AveragePrice;
+                        if (decrease > 0) 
+                        {
+                            priceDrops.Add(new PriceAnomalyDto
+                            {
+                                CropCode = tp.ProduceId,
+                                CropName = tp.ProduceName ?? "未知作物",
+                                CurrentPrice = tp.AveragePrice,
+                                PreviousPrice = yp.AveragePrice,
+                                IncreasePercentage = System.Math.Round(decrease * 100, 2)
+                            });
+                        }
+                    }
                 }
+            }
+
+            var topDrops = priceDrops.OrderByDescending(p => p.IncreasePercentage).Take(3).ToList();
+            var recipes = new List<object>();
+
+            // 本地食譜資料庫
+            var recipeDatabase = new Dictionary<string, object>
+            {
+                { "番茄", new { RecipeName = "番茄炒蛋", MainIngredients = new[] { "番茄", "雞蛋" }, ImageUrl = "🍅", Steps = new[] { "1. 番茄切塊", "2. 雞蛋打散炒熟", "3. 加入番茄拌炒", "4. 加點番茄醬與糖調味" } } },
+                { "高麗菜", new { RecipeName = "蒜炒高麗菜", MainIngredients = new[] { "高麗菜", "蒜頭" }, ImageUrl = "🥬", Steps = new[] { "1. 高麗菜洗淨切片", "2. 蒜頭爆香", "3. 放入高麗菜大火快炒", "4. 加鹽調味即可" } } },
+                { "青江菜", new { RecipeName = "青江菜炒肉絲", MainIngredients = new[] { "青江菜", "豬肉絲" }, ImageUrl = "🥬", Steps = new[] { "1. 青江菜洗淨切段", "2. 肉絲醃製", "3. 炒熟肉絲後加入青江菜", "4. 拌炒均勻即可" } } },
+                { "小白菜", new { RecipeName = "小白菜豆腐湯", MainIngredients = new[] { "小白菜", "豆腐" }, ImageUrl = "🥬", Steps = new[] { "1. 煮滾高湯", "2. 放入切塊豆腐", "3. 加入小白菜煮熟", "4. 加鹽調味" } } },
+                { "洋蔥", new { RecipeName = "洋蔥炒蛋", MainIngredients = new[] { "洋蔥", "雞蛋" }, ImageUrl = "🧅", Steps = new[] { "1. 洋蔥切絲", "2. 炒軟洋蔥", "3. 倒入蛋液炒熟", "4. 加鹽調味" } } },
+                { "胡蘿蔔", new { RecipeName = "紅蘿蔔炒肉絲", MainIngredients = new[] { "胡蘿蔔", "豬肉絲" }, ImageUrl = "🥕", Steps = new[] { "1. 胡蘿蔔切絲", "2. 肉絲醃製", "3. 炒熟肉絲後加入胡蘿蔔絲", "4. 拌炒均勻即可" } } },
+                { "花椰菜", new { RecipeName = "清炒花椰菜", MainIngredients = new[] { "花椰菜", "蒜頭" }, ImageUrl = "🥦", Steps = new[] { "1. 花椰菜切小朵洗淨", "2. 滾水川燙", "3. 蒜頭爆香", "4. 加入花椰菜拌炒" } } },
+                { "茄子", new { RecipeName = "魚香茄子", MainIngredients = new[] { "茄子", "豬絞肉" }, ImageUrl = "🍆", Steps = new[] { "1. 茄子切段炸軟", "2. 炒香絞肉與辛香料", "3. 加入茄子與醬汁", "4. 悶煮入味" } } },
+                { "馬鈴薯", new { RecipeName = "馬鈴薯燉肉", MainIngredients = new[] { "馬鈴薯", "豬肉塊" }, ImageUrl = "🥔", Steps = new[] { "1. 馬鈴薯與肉切塊", "2. 炒香肉塊", "3. 加入馬鈴薯與醬油、糖、水", "4. 燉煮至軟爛" } } },
+                { "玉米", new { RecipeName = "玉米排骨湯", MainIngredients = new[] { "玉米", "排骨" }, ImageUrl = "🌽", Steps = new[] { "1. 排骨川燙去血水", "2. 玉米切段", "3. 將排骨與玉米放入鍋中", "4. 加水燉煮一小時，加鹽調味" } } }
             };
+
+            foreach (var drop in topDrops)
+            {
+                // 尋找匹配的食譜
+                var matchedRecipeKey = recipeDatabase.Keys.FirstOrDefault(k => drop.CropName.Contains(k));
+                if (matchedRecipeKey != null)
+                {
+                    dynamic recipeInfo = recipeDatabase[matchedRecipeKey];
+                    recipes.Add(new {
+                        RecipeName = recipeInfo.RecipeName,
+                        MainIngredients = recipeInfo.MainIngredients,
+                        Reason = $"今日 {drop.CropName} 價格大跌 {drop.IncreasePercentage}%，每公斤只要 {drop.CurrentPrice} 元！",
+                        ImageUrl = recipeInfo.ImageUrl,
+                        Steps = recipeInfo.Steps
+                    });
+                }
+            }
+
+            // 如果沒有匹配到，提供預設食譜
+            if (recipes.Count == 0)
+            {
+                recipes.Add(new {
+                    RecipeName = "清炒時蔬",
+                    MainIngredients = new[] { "當季蔬菜", "蒜頭" },
+                    Reason = "多吃蔬菜有益健康！",
+                    ImageUrl = "🥗",
+                    Steps = new[] { "1. 蔬菜洗淨切段", "2. 蒜頭爆香", "3. 放入蔬菜大火快炒", "4. 加鹽調味即可" }
+                });
+            }
 
             return Ok(recipes);
         }
+
+        [HttpPost("fcm-token")]
+        public async Task<IActionResult> UpdateFcmToken([FromBody] FcmTokenRequest request)
+        {
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
+            var userStat = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (userStat == null)
+            {
+                userStat = new UserStat { UserId = userId, ContributionPoints = 0, Level = "新手菜鳥", FcmToken = request.Token };
+                _dbContext.UserStats.Add(userStat);
+            }
+            else
+            {
+                userStat.FcmToken = request.Token;
+                _dbContext.UserStats.Update(userStat);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { Message = "FCM Token updated successfully" });
+        }
+    }
+
+    public class FcmTokenRequest
+    {
+        public string Token { get; set; }
     }
 
     public class FavoriteRequest

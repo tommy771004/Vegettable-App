@@ -60,6 +60,8 @@ namespace ProduceApi.Data
         [Required]
         public string ProduceId { get; set; }
         
+        public string ProduceName { get; set; }
+        
         public string MarketCode { get; set; }
         
         public double AveragePrice { get; set; }
@@ -75,5 +77,7 @@ namespace ProduceApi.Data
         public int ContributionPoints { get; set; }
         
         public string Level { get; set; }
+        
+        public string FcmToken { get; set; }
     }
 }

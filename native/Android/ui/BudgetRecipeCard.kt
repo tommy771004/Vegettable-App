@@ -24,14 +24,14 @@ data class BudgetRecipe(
 )
 
 @Composable
-fun BudgetRecipeGenerator(modifier: Modifier = Modifier) {
-    // 模擬從後端 GET /api/produce/budget-recipes 取得的資料
-    val recipes = listOf(
+fun BudgetRecipeGenerator(
+    modifier: Modifier = Modifier,
+    recipes: List<BudgetRecipe> = listOf(
         BudgetRecipe("番茄炒蛋", "今日番茄大跌價！", "🍅", "番茄、雞蛋、蔥"),
         BudgetRecipe("蒜炒高麗菜", "高麗菜價格平穩", "🥬", "高麗菜、蒜頭"),
         BudgetRecipe("蘿蔔排骨湯", "當季蘿蔔最便宜", "🍲", "白蘿蔔、排骨")
     )
-
+) {
     Column(modifier = modifier.fillMaxWidth().padding(8.dp)) {
         Text(
             text = "🍳 今天吃什麼？省錢食譜推薦",

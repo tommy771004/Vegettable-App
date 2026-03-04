@@ -165,4 +165,40 @@ public class ProduceService {
         Request request = new Request.Builder().url(url).build();
         client.newCall(request).enqueue(callback);
     }
+
+    // 新增功能：天氣預警 (Weather Alerts)
+    public void getWeatherAlerts(Callback callback) {
+        String url = BASE_URL + "/weather-alerts";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
+    // 新增功能：省錢食譜 (Budget Recipes)
+    public void getBudgetRecipes(Callback callback) {
+        String url = BASE_URL + "/budget-recipes";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
+    // 發送 FCM Token 到後端
+    public void sendFcmToken(String token, Callback callback) {
+        try {
+            JSONObject json = new JSONObject();
+            json.put("token", token);
+
+            RequestBody body = RequestBody.create(
+                json.toString(),
+                MediaType.parse("application/json; charset=utf-8")
+            );
+
+            Request request = new Request.Builder()
+                    .url(BASE_URL + "/fcm-token")
+                    .post(body)
+                    .build();
+
+            client.newCall(request).enqueue(callback);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

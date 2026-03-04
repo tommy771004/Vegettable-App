@@ -28,7 +28,28 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // 取得 FCM Token
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         print("Firebase registration token: \(String(describing: fcmToken))")
-        // TODO: 將 Token 送回您的後端伺服器
+        
+        guard let token = fcmToken else { return }
+        
+        // 將 Token 送回您的後端伺服器
+        guard let url = URL(string: "https://api.yourbackend.com/api/produce/fcm-token") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("user-device-uuid-12345", forHTTPHeaderField: "X-User-Id") // 模擬使用者 ID
+        
+        let body: [String: String] = ["token": token]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Failed to send FCM token to backend: \(error.localizedDescription)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse {
+                print("Successfully sent FCM token to backend. Response code: \(httpResponse.statusCode)")
+            }
+        }.resume()
     }
     
     // 在前景收到推播時的處理
