@@ -11,6 +11,7 @@ namespace ProduceApi.Data
         public DbSet<UserFavorite> UserFavorites { get; set; }
         public DbSet<PriceHistory> PriceHistories { get; set; }
         public DbSet<CommunityPrice> CommunityPrices { get; set; }
+        public DbSet<UserStat> UserStats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -64,5 +65,15 @@ namespace ProduceApi.Data
         public double AveragePrice { get; set; }
         
         public System.DateTime RecordDate { get; set; }
+    }
+
+    public class UserStat
+    {
+        [Key]
+        public string UserId { get; set; }
+        
+        public int ContributionPoints { get; set; }
+        
+        public string Level { get; set; }
     }
 }

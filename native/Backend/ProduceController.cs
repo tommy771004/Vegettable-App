@@ -302,9 +302,29 @@ namespace ProduceApi.Controllers
             };
 
             _dbContext.CommunityPrices.Add(newPrice);
+
+            // Idea A: 遊戲化機制 - 增加貢獻積分
+            var userStat = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (userStat == null)
+            {
+                userStat = new UserStat { UserId = userId, ContributionPoints = 0, Level = "新手菜鳥" };
+                _dbContext.UserStats.Add(userStat);
+            }
+            
+            userStat.ContributionPoints += 5; // 每次回報 +5 分
+
+            // 升級邏輯
+            if (userStat.ContributionPoints >= 100) userStat.Level = "市場達人";
+            else if (userStat.ContributionPoints >= 50) userStat.Level = "精打細算";
+
             await _dbContext.SaveChangesAsync();
 
-            return Ok(new { Message = "Community price reported successfully" });
+            return Ok(new { 
+                Message = "Community price reported successfully",
+                PointsEarned = 5,
+                TotalPoints = userStat.ContributionPoints,
+                CurrentLevel = userStat.Level
+            });
         }
 
         [HttpGet("community-price/{cropCode}")]
@@ -325,6 +345,25 @@ namespace ProduceApi.Controllers
                 .ToListAsync();
 
             return Ok(prices);
+        }
+
+        // Idea A: 取得使用者積分與等級
+        [HttpGet("user-stats")]
+        public async Task<IActionResult> GetUserStats()
+        {
+            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Missing X-User-Id header" });
+            }
+
+            var stats = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (stats == null) 
+            {
+                return Ok(new { ContributionPoints = 0, Level = "新手菜鳥" });
+            }
+
+            return Ok(stats);
         }
 
         // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
