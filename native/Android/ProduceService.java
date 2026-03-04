@@ -68,6 +68,20 @@ public class ProduceService {
         client.newCall(request).enqueue(callback);
     }
 
+    // 新增功能：市場比價 (Market Comparison)
+    public void comparePrices(String cropName, Callback callback) {
+        String url = BASE_URL + "/compare/" + cropName;
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
+    // 新增功能：價格預測與趨勢分析 (Price Forecasting)
+    public void getForecast(String produceId, Callback callback) {
+        String url = BASE_URL + "/forecast/" + produceId;
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
+
     // 邏輯修正：移除 body 中的 userId，因為已經透過 AuthInterceptor 放在 Header 中了
     public void syncFavorite(String produceId, double targetPrice, Callback callback) {
         try {

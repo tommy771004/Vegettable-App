@@ -52,6 +52,42 @@ class ProduceService {
         }.resume()
     }
     
+    // 新增功能：市場比價 (Market Comparison)
+    func comparePrices(cropName: String, completion: @escaping (Result<[ProduceDto], Error>) -> Void) {
+        let encodedCropName = cropName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let urlString = "\(baseURL)/compare/\(encodedCropName)"
+        guard let url = URL(string: urlString) else { return }
+        
+        var request = URLRequest(url: url)
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([ProduceDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    // 新增功能：價格預測與趨勢分析 (Price Forecasting)
+    func getForecast(produceId: String, completion: @escaping (Result<Data, Error>) -> Void) {
+        let urlString = "\(baseURL)/forecast/\(produceId)"
+        guard let url = URL(string: urlString) else { return }
+        
+        var request = URLRequest(url: url)
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            if let data = data { completion(.success(data)) }
+        }.resume()
+    }
+    
     // 邏輯修正：移除 body 中的 userId，因為已經放在 Header 中了
     func syncFavorite(produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void) {
         guard let url = URL(string: "\(baseURL)/favorites") else { return }

@@ -74,3 +74,17 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
 1. **分頁與搜尋 (Pagination & Search)**：前端不再一次接收 2000 筆資料，而是透過 `page` 與 `keyword` 參數向後端請求，後端透過 LINQ 過濾後只回傳 20 筆，大幅降低手機記憶體消耗。
 2. **身分識別 (Authentication)**：移除了原本在 Body 中手動傳遞 `UserId` 的錯誤邏輯。現在透過 Android 的 `Interceptor` 與 iOS 的 `URLRequest` 自動在 Header 注入 `X-User-Id`，後端 Controller 統一從 Header 讀取，邏輯完全 Match 且更安全。
 3. **離線容錯 (Offline Tolerance)**：透過 Repository Pattern，前端在呼叫後端 API 失敗時，不會再發生 Crash，而是優雅地降級 (Fallback) 讀取本地資料庫。
+4. **JSON 解析邏輯修正 (Backend)**：政府 API 回傳的 JSON 欄位是中文 (如 `"作物代號"`)，如果後端直接用 `ProduceDto` 解析，會導致前端收到的也是中文欄位。新增了專門用來解析政府 API 的 `MoaProduceDto` (加上 `[JsonPropertyName]` 標籤)，並在 Controller 中將其映射回標準的 `ProduceDto`，確保前端收到的永遠是標準的英文欄位 (如 `"cropCode"`)。
+5. **背景同步服務邏輯修正 (`ProduceSyncWorker.cs`)**：實作了完整的 JSON 解析邏輯 (使用 `MoaProduceDto`)，並將每天抓取到的最新價格寫入 `PriceHistory` 資料表，讓後端真正成為資料的 Source of Truth。
+
+---
+
+## ✨ 新增功能 (New Features)
+
+1. **市場比價 (Market Comparison)**：
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/compare/{cropName}`，允許使用者查詢特定農產品在全台各市場的今日價格，並由低到高排序。
+   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `comparePrices` 方法，讓前端可以輕鬆呼叫比價 API。
+
+2. **價格預測與趨勢分析 (Price Forecasting)**：
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/forecast/{produceId}`，根據過去 14 天的歷史資料，計算 7 日移動平均線，預測未來價格趨勢 (上漲、下跌或持平)。
+   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getForecast` 方法，讓前端可以取得價格預測結果。

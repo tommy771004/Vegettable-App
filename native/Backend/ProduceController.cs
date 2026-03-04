@@ -33,7 +33,17 @@ namespace ProduceApi.Controllers
                 string rawData = await _produceService.FetchProduceDataAsync("ALL");
                 
                 // 假設解析政府 API 的 JSON 格式
-                var allItems = JsonSerializer.Deserialize<List<ProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ProduceDto>();
+                var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
+                
+                var allItems = moaItems.Select(m => new ProduceDto {
+                    CropCode = m.CropCode,
+                    CropName = m.CropName,
+                    MarketCode = m.MarketCode,
+                    MarketName = m.MarketName,
+                    AvgPrice = m.AvgPrice,
+                    TransQuantity = m.TransQuantity,
+                    Date = m.Date
+                }).ToList();
 
                 // 1. 搜尋過濾
                 if (!string.IsNullOrEmpty(keyword))
@@ -74,6 +84,70 @@ namespace ProduceApi.Controllers
                 .ToListAsync();
 
             return Ok(history);
+        }
+
+        // 新增功能：市場比價 (Market Comparison)
+        // 允許使用者查詢特定農產品在全台各市場的今日價格，並由低到高排序
+        [HttpGet("compare/{cropName}")]
+        public async Task<IActionResult> GetMarketComparison(string cropName)
+        {
+            try
+            {
+                string rawData = await _produceService.FetchProduceDataAsync("ALL");
+                var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
+
+                var allItems = moaItems.Select(m => new ProduceDto {
+                    CropCode = m.CropCode,
+                    CropName = m.CropName,
+                    MarketCode = m.MarketCode,
+                    MarketName = m.MarketName,
+                    AvgPrice = m.AvgPrice,
+                    TransQuantity = m.TransQuantity,
+                    Date = m.Date
+                }).ToList();
+
+                var comparisonData = allItems
+                    .Where(x => x.CropName.Equals(cropName, System.StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.AvgPrice)
+                    .ToList();
+
+                return Ok(comparisonData);
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // 新增功能：價格預測與趨勢分析 (Price Forecasting)
+        // 根據過去 14 天的歷史資料，計算 7 日移動平均線，預測未來價格趨勢
+        [HttpGet("forecast/{produceId}")]
+        public async Task<IActionResult> GetPriceForecast(string produceId)
+        {
+            var history = await _dbContext.PriceHistories
+                .Where(p => p.ProduceId == produceId)
+                .OrderByDescending(p => p.RecordDate)
+                .Take(14)
+                .ToListAsync();
+
+            if (history.Count < 7)
+            {
+                return Ok(new { Forecast = "Insufficient Data", Trend = "Unknown" });
+            }
+
+            var recent7DaysAvg = history.Take(7).Average(p => p.AveragePrice);
+            var previous7DaysAvg = history.Skip(7).Take(7).Average(p => p.AveragePrice);
+
+            string trend = "Stable";
+            if (recent7DaysAvg > previous7DaysAvg * 1.05) trend = "Up";
+            else if (recent7DaysAvg < previous7DaysAvg * 0.95) trend = "Down";
+
+            return Ok(new { 
+                RecentAverage = recent7DaysAvg,
+                PreviousAverage = previous7DaysAvg,
+                Trend = trend,
+                Message = $"Recent 7-day avg is {recent7DaysAvg:F2}, previous 7-day avg was {previous7DaysAvg:F2}."
+            });
         }
 
         [HttpPost("favorites")]

@@ -4,8 +4,11 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Text.Json;
 using ProduceApi.Data;
 using ProduceApi.Services;
+using ProduceApi.Models;
 
 namespace ProduceApi.Workers
 {
@@ -41,23 +44,25 @@ namespace ProduceApi.Workers
                         // 1. 抓取最新資料
                         string rawData = await produceService.FetchProduceDataAsync("ALL");
                         
-                        // 2. 解析 JSON (這裡假設有 JSON 解析邏輯)
-                        // var items = JsonConvert.DeserializeObject<List<ProduceItem>>(rawData);
+                        // 2. 解析 JSON
+                        var items = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
 
                         // 3. 將今日價格寫入 PriceHistory 資料表
-                        /*
+                        var today = DateTime.UtcNow.Date;
+                        
                         foreach (var item in items) {
-                            dbContext.PriceHistories.Add(new PriceHistory {
-                                ProduceId = item.CropCode,
-                                MarketCode = item.MarketCode,
-                                AveragePrice = item.AvgPrice,
-                                RecordDate = DateTime.UtcNow
-                            });
+                            if (!string.IsNullOrEmpty(item.CropCode)) {
+                                dbContext.PriceHistories.Add(new PriceHistory {
+                                    ProduceId = item.CropCode,
+                                    MarketCode = item.MarketCode,
+                                    AveragePrice = item.AvgPrice,
+                                    RecordDate = today
+                                });
+                            }
                         }
                         await dbContext.SaveChangesAsync();
-                        */
                         
-                        _logger.LogInformation("Successfully synced daily prices to database.");
+                        _logger.LogInformation($"Successfully synced {items.Count} daily prices to database.");
                     }
                 }
                 catch (Exception ex)
