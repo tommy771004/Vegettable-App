@@ -31,17 +31,17 @@ fun PriceTrendChart(
         val stepX = size.width / (totalPoints - 1).coerceAtLeast(1)
         val scaleY = size.height / maxPrice
 
-        // 繪製歷史價格 (實線，深綠色)
+        // 繪製歷史價格 (實線，亮綠色)
         val histPath = Path()
         historical.forEachIndexed { index, data ->
             val x = index * stepX
             val y = size.height - (data.avgPrice * scaleY)
             if (index == 0) histPath.moveTo(x, y) else histPath.lineTo(x, y)
-            drawCircle(color = Color(0xFF2E7D32), radius = 4.dp.toPx(), center = Offset(x, y))
+            drawCircle(color = Color(0xFF4CAF50), radius = 6.dp.toPx(), center = Offset(x, y)) // 加大資料點並改為亮綠色
         }
-        drawPath(path = histPath, color = Color(0xFF2E7D32), style = Stroke(width = 2.dp.toPx()))
+        drawPath(path = histPath, color = Color(0xFF4CAF50), style = Stroke(width = 3.dp.toPx())) // 加粗線條
 
-        // 繪製預測價格 (虛線，橘色)
+        // 繪製預測價格 (虛線，亮橘色)
         if (predicted.isNotEmpty() && historical.isNotEmpty()) {
             val predPath = Path()
             val lastHist = historical.last()
@@ -53,14 +53,14 @@ fun PriceTrendChart(
                 val x = (historical.size + index) * stepX
                 val y = size.height - (data.predictedPrice * scaleY)
                 predPath.lineTo(x, y)
-                drawCircle(color = Color(0xFFFF9800), radius = 4.dp.toPx(), center = Offset(x, y))
+                drawCircle(color = Color(0xFFFF5722), radius = 6.dp.toPx(), center = Offset(x, y)) // 加大資料點並改為亮橘色
             }
             drawPath(
                 path = predPath,
-                color = Color(0xFFFF9800),
+                color = Color(0xFFFF5722),
                 style = Stroke(
-                    width = 2.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                    width = 3.dp.toPx(), // 加粗線條
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f) // 調整虛線間距
                 )
             )
         }
