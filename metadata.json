@@ -1,0 +1,5 @@
+{
+  "name": "當令蔬果生鮮價",
+  "description": "查詢台灣當季蔬菜、水果、漁產、肉品、花卉、白米的平均批發價，判斷當前價格是否便宜。",
+  "requestFramePermissions": []
+}
