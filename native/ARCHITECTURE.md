@@ -123,3 +123,14 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
     - **Android/iOS (`strings.xml`, `Localizable.strings`)**：針對外籍移工或長輩，加入多國語言支援（如印尼語 `id`、越南語 `vi`）。
     - **Android (`TextToSpeechHelper.java`)**：導入 `android.speech.tts.TextToSpeech`，提供語音播報功能，並可調慢語速，方便長輩或視力不佳者聽取價格。
     - **iOS (`TextToSpeechHelper.swift`)**：導入 `AVFoundation` 的 `AVSpeechSynthesizer`，實現跨語系的語音播報輔助。
+
+11. **前端 UI 介面實作 (UI Layer)**：
+    - **UI 風格 (Liquid Glass / 毛玻璃)**：參考 iOS 18 質感，全站採用淡綠色漸層底色，並搭配半透明、帶有模糊效果與白色細邊框的卡片設計，營造清新且具現代感的視覺體驗。
+    - **Android (Jetpack Compose)**：
+      - `ProduceViewModel.kt`：使用 `StateFlow` 綁定資料，並提供歷史價格與預測數據。
+      - `HomeScreen.kt`：實作 `liquidGlass()` Modifier 達成毛玻璃效果。包含異常警報、熱門交易、以及帶有語音播報的菜價列表。
+      - `PriceTrendChart.kt`：使用 `Canvas` 繪製折線圖，實線代表歷史價格，虛線 (橘色) 代表 AI 預測趨勢。
+    - **iOS (SwiftUI)**：
+      - `ProduceViewModel.swift`：使用 `@MainActor` 與 `@Published` 進行狀態管理。
+      - `HomeScreen.swift`：使用 `.ultraThinMaterial` 搭配淡綠色背景實作毛玻璃質感 (`LiquidGlassModifier`)。
+      - `PriceTrendView.swift`：導入 Apple 原生 `Charts` 框架，使用 `LineMark` 繪製歷史與預測價格走勢圖。
