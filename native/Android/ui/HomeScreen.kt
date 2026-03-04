@@ -31,7 +31,12 @@ fun Modifier.liquidGlass() = this
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: ProduceViewModel, ttsHelper: TextToSpeechHelper) {
+fun HomeScreen(
+    viewModel: ProduceViewModel, 
+    ttsHelper: TextToSpeechHelper,
+    onNavigateToGroceryList: () -> Unit = {},
+    onNavigateToElderlyMode: () -> Unit = {}
+) {
     val anomalies by viewModel.anomalies.collectAsState()
     val topVolume by viewModel.topVolume.collectAsState()
     val dailyPrices by viewModel.dailyPrices.collectAsState()
@@ -60,6 +65,51 @@ fun HomeScreen(viewModel: ProduceViewModel, ttsHelper: TextToSpeechHelper) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 0. 天氣與菜價預警 (颱風/暴雨警報)
+                item {
+                    WeatherAlertCard()
+                }
+
+                // 0.1 長輩友善語音搜尋按鈕
+                item {
+                    VoiceSearchButton(onClick = onNavigateToElderlyMode)
+                }
+
+                // 0.2 「今天吃什麼？」省錢食譜推薦
+                item {
+                    BudgetRecipeGenerator()
+                }
+
+                // 0.3 當季盛產日曆
+                item {
+                    Text("🌱 當季盛產推薦", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SeasonalCropCalendar()
+                }
+
+                // 0.4 尋找最近的果菜市場
+                item {
+                    MarketFinderCard()
+                }
+
+                // 0.5 前往「智慧買菜清單」
+                item {
+                    Button(
+                        onClick = onNavigateToGroceryList,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                    ) {
+                        Text("🛒 打開智慧買菜清單", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 // 1. 價格異常警報
                 if (anomalies.isNotEmpty()) {
                     item {

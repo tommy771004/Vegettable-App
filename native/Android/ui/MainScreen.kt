@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,16 +17,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import com.example.produceapp.utils.TextToSpeechHelper
 
 enum class BottomTab(val title: String, val icon: ImageVector) {
     HOME("首頁", Icons.Default.Home),
     FAVORITES("收藏", Icons.Default.Favorite),
-    SETTINGS("設定", Icons.Default.Settings)
+    SETTINGS("設定", Icons.Default.Settings),
+    GROCERY_LIST("清單", Icons.Default.ShoppingCart)
 }
 
 @Composable
-fun MainScreen(viewModel: ProduceViewModel) {
+fun MainScreen(viewModel: ProduceViewModel, ttsHelper: TextToSpeechHelper) {
     var currentTab by remember { mutableStateOf(BottomTab.HOME) }
+    val context = LocalContext.current
     
     // 全站漸層底色 (iOS 26 Liquid Glass 風格)
     val bgBrush = Brush.linearGradient(
@@ -36,9 +42,18 @@ fun MainScreen(viewModel: ProduceViewModel) {
         // 主要內容區域
         Box(modifier = Modifier.fillMaxSize().padding(bottom = 80.dp)) {
             when (currentTab) {
-                BottomTab.HOME -> HomeScreen(viewModel)
+                BottomTab.HOME -> HomeScreen(
+                    viewModel = viewModel,
+                    ttsHelper = ttsHelper,
+                    onNavigateToGroceryList = { currentTab = BottomTab.GROCERY_LIST },
+                    onNavigateToElderlyMode = {
+                        val intent = Intent(context, ElderlyModeActivity::class.java)
+                        context.startActivity(intent)
+                    }
+                )
                 BottomTab.FAVORITES -> FavoritesScreen(viewModel)
                 BottomTab.SETTINGS -> SettingsScreen()
+                BottomTab.GROCERY_LIST -> SmartGroceryListScreen()
             }
         }
 
