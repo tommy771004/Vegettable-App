@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 新增功能：多語系與無障礙設計 (i18n & Accessibility) - 印尼語 (Indonesian) -->
+    <string name="app_name">Harga Sayur</string>
+    <string name="price_anomaly_alert">⚠️ Peringatan Harga Tidak Normal</string>
+    <string name="price_anomaly_desc">Harga %1$s melonjak %2$d%% dalam sehari! Disarankan untuk menunda pembelian.</string>
+    <string name="my_favorites">Favorit Saya</string>
+    <string name="top_volume">Terlaris Hari Ini</string>
+    <string name="seasonal_crops">Rekomendasi Musiman</string>
+    <string name="community_price">Harga Komunitas</string>
+    <string name="tts_read_price">Harga %1$s hari ini adalah %2$s dolar</string>
+</resources>

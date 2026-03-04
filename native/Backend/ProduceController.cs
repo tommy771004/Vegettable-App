@@ -358,6 +358,55 @@ namespace ProduceApi.Controllers
 
             return Ok(seasonalCrops);
         }
+
+        // 新增功能：價格異常警告 (Price Anomaly Detection)
+        [HttpGet("anomalies")]
+        public async Task<ActionResult<IEnumerable<PriceAnomalyDto>>> GetPriceAnomalies()
+        {
+            // 找出最近的兩天有交易紀錄的日期
+            var latestDates = await _context.PriceHistories
+                .Select(p => p.Date)
+                .Distinct()
+                .OrderByDescending(d => d)
+                .Take(2)
+                .ToListAsync();
+
+            if (latestDates.Count < 2) return Ok(new List<PriceAnomalyDto>());
+
+            var today = latestDates[0];
+            var yesterday = latestDates[1];
+
+            var todayPrices = await _context.PriceHistories.Where(p => p.Date == today).ToDictionaryAsync(p => p.CropCode);
+            var yesterdayPrices = await _context.PriceHistories.Where(p => p.Date == yesterday).ToDictionaryAsync(p => p.CropCode);
+
+            var anomalies = new List<PriceAnomalyDto>();
+            foreach (var tp in todayPrices.Values)
+            {
+                if (yesterdayPrices.TryGetValue(tp.CropCode, out var yp))
+                {
+                    if (yp.AvgPrice > 0)
+                    {
+                        var increase = (tp.AvgPrice - yp.AvgPrice) / yp.AvgPrice;
+                        // 如果單日漲幅超過 50% (0.5)，則視為價格異常暴漲
+                        if (increase >= 0.5) 
+                        {
+                            anomalies.Add(new PriceAnomalyDto
+                            {
+                                CropCode = tp.CropCode,
+                                CropName = tp.CropName,
+                                CurrentPrice = tp.AvgPrice,
+                                PreviousPrice = yp.AvgPrice,
+                                IncreasePercentage = System.Math.Round(increase * 100, 2),
+                                AlertMessage = $"⚠️ {tp.CropName} 價格單日暴漲 {System.Math.Round(increase * 100, 0)}%！建議暫緩購買或尋找替代品。"
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 依據漲幅排序，漲最多的排前面
+            return Ok(anomalies.OrderByDescending(a => a.IncreasePercentage));
+        }
     }
 
     public class FavoriteRequest

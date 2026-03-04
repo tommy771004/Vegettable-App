@@ -75,4 +75,15 @@ namespace ProduceApi.Models
         public string Season { get; set; }
         public string Description { get; set; }
     }
+
+    // 新增功能：價格異常警告 (Price Anomaly Detection)
+    public class PriceAnomalyDto
+    {
+        public string CropCode { get; set; }
+        public string CropName { get; set; }
+        public double CurrentPrice { get; set; }
+        public double PreviousPrice { get; set; }
+        public double IncreasePercentage { get; set; }
+        public string AlertMessage { get; set; }
+    }
 }

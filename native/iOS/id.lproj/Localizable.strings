@@ -1,0 +1,9 @@
+/* 新增功能：多語系與無障礙設計 (i18n & Accessibility) - 印尼語 (Indonesian) */
+"app_name" = "Harga Sayur";
+"price_anomaly_alert" = "⚠️ Peringatan Harga Tidak Normal";
+"price_anomaly_desc" = "Harga %@ melonjak %d%% dalam sehari! Disarankan untuk menunda pembelian.";
+"my_favorites" = "Favorit Saya";
+"top_volume" = "Terlaris Hari Ini";
+"seasonal_crops" = "Rekomendasi Musiman";
+"community_price" = "Harga Komunitas";
+"tts_read_price" = "Harga %@ hari ini adalah %@ dolar";

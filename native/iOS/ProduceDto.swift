@@ -43,3 +43,13 @@ struct SeasonalCropDto: Codable {
     let season: String
     let description: String
 }
+
+// 新增功能：價格異常警告 (Price Anomaly Detection) 的 DTO
+struct PriceAnomalyDto: Codable {
+    let cropCode: String
+    let cropName: String
+    let currentPrice: Double
+    let previousPrice: Double
+    let increasePercentage: Double
+    let alertMessage: String
+}

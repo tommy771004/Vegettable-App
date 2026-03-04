@@ -236,4 +236,24 @@ class ProduceService {
             }
         }.resume()
     }
+
+    // 新增功能：價格異常警告 (Price Anomaly Detection)
+    func getPriceAnomalies(completion: @escaping (Result<[PriceAnomalyDto], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/anomalies") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let decoder = JSONDecoder()
+                let result = try decoder.decode([PriceAnomalyDto].self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
 }

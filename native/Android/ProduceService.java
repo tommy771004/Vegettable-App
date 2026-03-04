@@ -158,4 +158,11 @@ public class ProduceService {
         Request request = new Request.Builder().url(url).build();
         client.newCall(request).enqueue(callback);
     }
+
+    // 新增功能：價格異常警告 (Price Anomaly Detection)
+    public void getPriceAnomalies(Callback callback) {
+        String url = BASE_URL + "/anomalies";
+        Request request = new Request.Builder().url(url).build();
+        client.newCall(request).enqueue(callback);
+    }
 }

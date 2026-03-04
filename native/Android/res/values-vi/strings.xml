@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 新增功能：多語系與無障礙設計 (i18n & Accessibility) - 越南語 (Vietnamese) -->
+    <string name="app_name">Giá Rau Củ</string>
+    <string name="price_anomaly_alert">⚠️ Cảnh Báo Giá Bất Thường</string>
+    <string name="price_anomaly_desc">Giá %1$s đã tăng %2$d%% trong một ngày! Khuyên bạn nên tạm dừng mua.</string>
+    <string name="my_favorites">Yêu Thích Của Tôi</string>
+    <string name="top_volume">Bán Chạy Nhất Hôm Nay</string>
+    <string name="seasonal_crops">Gợi Ý Theo Mùa</string>
+    <string name="community_price">Giá Cộng Đồng</string>
+    <string name="tts_read_price">Giá %1$s hôm nay là %2$s đồng</string>
+</resources>

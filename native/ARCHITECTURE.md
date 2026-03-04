@@ -114,3 +114,12 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
 8. **當季盛產日曆 (Seasonal Crop Calendar)**：
    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/seasonal`，根據目前的月份，自動篩選出盛產的農產品清單。
    - **Android/iOS (`SeasonalCropDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法。
+
+9. **農產品價格異常警告 (Price Anomaly Detection)**：
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/anomalies`，自動比對近兩日的歷史價格，若單日漲幅超過 50%（例如因颱風或豪雨），則自動產生異常警報。
+   - **Android/iOS (`PriceAnomalyDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法，讓前端能在首頁顯示「價格異常警報」，提醒使用者避開購買。
+
+10. **多語系與無障礙設計 (i18n & Accessibility)**：
+    - **Android/iOS (`strings.xml`, `Localizable.strings`)**：針對外籍移工或長輩，加入多國語言支援（如印尼語 `id`、越南語 `vi`）。
+    - **Android (`TextToSpeechHelper.java`)**：導入 `android.speech.tts.TextToSpeech`，提供語音播報功能，並可調慢語速，方便長輩或視力不佳者聽取價格。
+    - **iOS (`TextToSpeechHelper.swift`)**：導入 `AVFoundation` 的 `AVSpeechSynthesizer`，實現跨語系的語音播報輔助。

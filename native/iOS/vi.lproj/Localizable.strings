@@ -1,0 +1,9 @@
+/* 新增功能：多語系與無障礙設計 (i18n & Accessibility) - 越南語 (Vietnamese) */
+"app_name" = "Giá Rau Củ";
+"price_anomaly_alert" = "⚠️ Cảnh Báo Giá Bất Thường";
+"price_anomaly_desc" = "Giá %@ đã tăng %d%% trong một ngày! Khuyên bạn nên tạm dừng mua.";
+"my_favorites" = "Yêu Thích Của Tôi";
+"top_volume" = "Bán Chạy Nhất Hôm Nay";
+"seasonal_crops" = "Gợi Ý Theo Mùa";
+"community_price" = "Giá Cộng Đồng";
+"tts_read_price" = "Giá %@ hôm nay là %@ đồng";
