@@ -1,29 +1,31 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text;
 
 namespace ProduceApi.Services
 {
     public class ProduceService
     {
         private readonly HttpClient _httpClient;
-        private readonly IMemoryCache _cache;
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+        private readonly IDistributedCache _cache;
+        private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
 
-        public ProduceService(HttpClient httpClient, IMemoryCache cache)
+        public ProduceService(HttpClient httpClient, IDistributedCache cache)
         {
             _httpClient = httpClient;
             _cache = cache;
         }
 
-        // Fetch produce data with in-memory caching
+        // Fetch produce data with Redis caching
         public async Task<string> FetchProduceDataAsync(string marketCode = "")
         {
             string cacheKey = string.IsNullOrEmpty(marketCode) ? "ALL" : marketCode;
 
             // Return cached data if valid
-            if (_cache.TryGetValue(cacheKey, out string cachedData))
+            var cachedData = await _cache.GetStringAsync(cacheKey);
+            if (!string.IsNullOrEmpty(cachedData))
             {
                 return cachedData;
             }
@@ -36,15 +38,18 @@ namespace ProduceApi.Services
             string responseData = await response.Content.ReadAsStringAsync();
 
             // Save to cache
-            _cache.Set(cacheKey, responseData, CacheDuration);
+            await _cache.SetStringAsync(cacheKey, responseData, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = CacheDuration
+            });
 
             return responseData;
         }
 
-        public void ClearCache()
+        public async Task ClearCacheAsync(string marketCode = "")
         {
-            // Note: IMemoryCache doesn't have a direct Clear() method. 
-            // In a real app, you would use CancellationTokens to evict cache entries.
+            string cacheKey = string.IsNullOrEmpty(marketCode) ? "ALL" : marketCode;
+            await _cache.RemoveAsync(cacheKey);
         }
     }
 }

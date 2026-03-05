@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,7 +22,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.produceapp.utils.TextToSpeechHelper
+import androidx.compose.ui.unit.sp
+import com.example.produceapp.util.TextToSpeechHelper
+import com.example.produceapp.util.Resource
 
 // 毛玻璃效果 Modifier (淡綠色底 + 半透明 + 細邊框)
 fun Modifier.liquidGlass() = this
@@ -37,11 +40,11 @@ fun HomeScreen(
     onNavigateToGroceryList: () -> Unit = {},
     onNavigateToElderlyMode: () -> Unit = {}
 ) {
-    val anomalies by viewModel.anomalies.collectAsState()
-    val topVolume by viewModel.topVolume.collectAsState()
-    val dailyPrices by viewModel.dailyPrices.collectAsState()
-    val historicalData by viewModel.historicalData.collectAsState()
-    val predictedData by viewModel.predictedData.collectAsState()
+    val anomaliesState by viewModel.anomalies.collectAsState()
+    val topVolumeState by viewModel.topVolume.collectAsState()
+    val dailyPricesState by viewModel.dailyPrices.collectAsState()
+    val historicalDataState by viewModel.historicalData.collectAsState()
+    val predictedDataState by viewModel.predictedData.collectAsState()
 
     // 漸層背景，讓毛玻璃效果更明顯
     val bgBrush = Brush.linearGradient(
@@ -111,16 +114,23 @@ fun HomeScreen(
                 }
 
                 // 1. 價格異常警報
-                if (anomalies.isNotEmpty()) {
-                    item {
-                        Text("⚠️ 價格異常警報", style = MaterialTheme.typography.titleMedium, color = Color.Red)
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                            anomalies.forEach { anomaly ->
-                                Box(modifier = Modifier.fillMaxWidth().liquidGlass()) {
-                                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Warning, contentDescription = "Warning", tint = Color.Red)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(anomaly.alertMessage, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
+                item {
+                    when (anomaliesState) {
+                        is Resource.Loading -> SkeletonLoader(modifier = Modifier.fillMaxWidth().height(50.dp))
+                        is Resource.Error -> ErrorView(message = (anomaliesState as Resource.Error).message ?: "Error", onRetry = { viewModel.fetchDashboardData() })
+                        is Resource.Success -> {
+                            val anomalies = (anomaliesState as Resource.Success).data ?: emptyList()
+                            if (anomalies.isNotEmpty()) {
+                                Text("⚠️ 價格異常警報", style = MaterialTheme.typography.titleMedium, color = Color.Red)
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                    anomalies.forEach { anomaly ->
+                                        Box(modifier = Modifier.fillMaxWidth().liquidGlass()) {
+                                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Warning, contentDescription = "Warning", tint = Color.Red)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(anomaly.alertMessage, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -129,26 +139,42 @@ fun HomeScreen(
                 }
 
                 // 2. 歷史價格與 7 日趨勢預測 (Line Chart)
-                if (historicalData.isNotEmpty() || predictedData.isNotEmpty()) {
-                    item {
-                        Text("📈 高麗菜 價格趨勢與預測", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
-                        Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).liquidGlass().padding(16.dp)) {
-                            PriceTrendChart(historical = historicalData, predicted = predictedData)
+                item {
+                    if (historicalDataState is Resource.Success && predictedDataState is Resource.Success) {
+                        val historicalData = (historicalDataState as Resource.Success).data ?: emptyList()
+                        val predictedData = (predictedDataState as Resource.Success).data ?: emptyList()
+                        
+                        if (historicalData.isNotEmpty() || predictedData.isNotEmpty()) {
+                            Text("📈 高麗菜 價格趨勢與預測", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).liquidGlass().padding(16.dp)) {
+                                PriceTrendChart(historical = historicalData, predicted = predictedData)
+                            }
                         }
+                    } else if (historicalDataState is Resource.Loading || predictedDataState is Resource.Loading) {
+                        SkeletonLoader(modifier = Modifier.fillMaxWidth().height(200.dp))
                     }
                 }
 
                 // 3. 熱門交易農產品
-                if (topVolume.isNotEmpty()) {
-                    item {
-                        Text("🔥 今日熱門交易", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                            items(topVolume) { crop ->
-                                Box(modifier = Modifier.width(120.dp).liquidGlass().padding(12.dp)) {
-                                    Column {
-                                        Text(crop.cropName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF1B5E20))
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("$${crop.avgPrice}/kg", color = Color(0xFF388E3C), style = MaterialTheme.typography.bodyMedium)
+                item {
+                    when (topVolumeState) {
+                        is Resource.Loading -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            repeat(3) { SkeletonLoader(modifier = Modifier.width(120.dp).height(80.dp)) }
+                        }
+                        is Resource.Error -> Text("Failed to load top volume", color = Color.Red)
+                        is Resource.Success -> {
+                            val topVolume = (topVolumeState as Resource.Success).data ?: emptyList()
+                            if (topVolume.isNotEmpty()) {
+                                Text("🔥 今日熱門交易", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                    items(topVolume) { crop ->
+                                        Box(modifier = Modifier.width(120.dp).liquidGlass().padding(12.dp)) {
+                                            Column {
+                                                Text(crop.cropName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF1B5E20))
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text("$${crop.avgPrice}/kg", color = Color(0xFF388E3C), style = MaterialTheme.typography.bodyMedium)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -158,18 +184,46 @@ fun HomeScreen(
 
                 // 4. 今日菜價列表
                 item { Text("📋 今日菜價", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32)) }
-                items(dailyPrices) { produce ->
-                    Box(modifier = Modifier.fillMaxWidth().liquidGlass().padding(16.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column {
-                                Text(produce.cropName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
-                                Text(produce.marketName, style = MaterialTheme.typography.bodySmall, color = Color(0xFF4CAF50))
+                
+                when (dailyPricesState) {
+                    is Resource.Loading -> {
+                        items(5) {
+                            SkeletonLoader(modifier = Modifier.fillMaxWidth().height(80.dp).padding(vertical = 8.dp))
+                        }
+                    }
+                    is Resource.Error -> {
+                        item {
+                            ErrorView(
+                                message = (dailyPricesState as Resource.Error).message ?: "Failed to load prices",
+                                onRetry = { viewModel.fetchDashboardData() }
+                            )
+                        }
+                    }
+                    is Resource.Success -> {
+                        val dailyPrices = (dailyPricesState as Resource.Success).data ?: emptyList()
+                        if (dailyPrices.isEmpty()) {
+                            item {
+                                EmptyStateView(
+                                    message = "今日暫無菜價資料",
+                                    icon = Icons.Default.ShoppingCart
+                                )
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("$${produce.avgPrice}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(onClick = { ttsHelper.speak("今日 ${produce.cropName} 價格是 ${produce.avgPrice} 元") }) {
-                                    Icon(Icons.Default.VolumeUp, contentDescription = "語音播報", tint = Color(0xFF388E3C))
+                        } else {
+                            items(dailyPrices) { produce ->
+                                Box(modifier = Modifier.fillMaxWidth().liquidGlass().padding(16.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Column {
+                                            Text(produce.cropName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                                            Text(produce.marketName, style = MaterialTheme.typography.bodySmall, color = Color(0xFF4CAF50))
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("$${produce.avgPrice}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            IconButton(onClick = { ttsHelper.speak("今日 ${produce.cropName} 價格是 ${produce.avgPrice} 元") }) {
+                                                Icon(Icons.Default.VolumeUp, contentDescription = "語音播報", tint = Color(0xFF388E3C))
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

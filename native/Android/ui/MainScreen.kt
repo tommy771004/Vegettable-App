@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
-import com.example.produceapp.utils.TextToSpeechHelper
+import com.example.produceapp.util.TextToSpeechHelper
 
 enum class BottomTab(val title: String, val icon: ImageVector) {
     HOME("首頁", Icons.Default.Home),

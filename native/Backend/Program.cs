@@ -13,7 +13,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. 註冊 Entity Framework Core 資料庫 (這裡以 SQLite 為例，實務上可換成 SQL Server 或 PostgreSQL)
 builder.Services.AddDbContext<ProduceDbContext>(options =>
-    options.UseSqlite("Data Source=produce.db"));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 1.1 註冊 Redis 快取
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "ProduceApi_";
+});
 
 // 2. 註冊 HttpClient，讓 ProduceService 可以向政府 API 發送請求
 builder.Services.AddHttpClient<ProduceService>();

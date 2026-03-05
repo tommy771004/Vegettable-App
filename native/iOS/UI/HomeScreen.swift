@@ -40,32 +40,45 @@ struct HomeScreen: View {
                     VStack(alignment: .leading, spacing: 24) {
                         
                         // 1. 價格異常警報
-                        if !viewModel.anomalies.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("⚠️ 價格異常警報")
-                                    .font(.headline)
-                                    .foregroundColor(.red)
-                                    .padding(.horizontal)
-                                
-                                ForEach(viewModel.anomalies, id: \.cropCode) { anomaly in
-                                    HStack(alignment: .top) {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.red)
-                                            .padding(.top, 2)
-                                        Text(anomaly.alertMessage)
-                                            .font(.subheadline)
-                                            .foregroundColor(.red)
+                        switch viewModel.anomalies {
+                        case .loading:
+                            SkeletonView()
+                                .frame(height: 60)
+                                .padding(.horizontal)
+                        case .failure(let error):
+                            ErrorView(message: error.localizedDescription) {
+                                Task { await viewModel.fetchDashboardData() }
+                            }
+                        case .success(let anomalies):
+                            if !anomalies.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("⚠️ 價格異常警報")
+                                        .font(.headline)
+                                        .foregroundColor(.red)
+                                        .padding(.horizontal)
+                                    
+                                    ForEach(anomalies) { anomaly in
+                                        HStack(alignment: .top) {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                .foregroundColor(.red)
+                                                .padding(.top, 2)
+                                            Text(anomaly.alertMessage)
+                                                .font(.subheadline)
+                                                .foregroundColor(.red)
+                                        }
+                                        .padding()
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .liquidGlass()
+                                        .padding(.horizontal)
                                     }
-                                    .padding()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .liquidGlass()
-                                    .padding(.horizontal)
                                 }
                             }
                         }
                         
                         // 2. 歷史價格與 7 日趨勢預測 (Line Chart)
-                        if !viewModel.historicalData.isEmpty || !viewModel.predictedData.isEmpty {
+                        if case .success(let history) = viewModel.historicalData,
+                           case .success(let predicted) = viewModel.predictedData,
+                           (!history.isEmpty || !predicted.isEmpty) {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("📈 高麗菜 價格趨勢與預測")
                                     .font(.headline)
@@ -73,42 +86,61 @@ struct HomeScreen: View {
                                     .padding(.horizontal)
                                 
                                 PriceTrendView(
-                                    historical: viewModel.historicalData,
-                                    predicted: viewModel.predictedData
+                                    historical: history,
+                                    predicted: predicted
                                 )
                                 .padding()
                                 .liquidGlass()
                                 .padding(.horizontal)
                             }
+                        } else if case .loading = viewModel.historicalData {
+                            SkeletonView()
+                                .frame(height: 200)
+                                .padding(.horizontal)
                         }
                         
                         // 3. 熱門交易農產品
-                        if !viewModel.topVolume.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("🔥 今日熱門交易")
-                                    .font(.headline)
-                                    .foregroundColor(Color(hex: "2E7D32"))
-                                    .padding(.horizontal)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 16) {
-                                        ForEach(viewModel.topVolume, id: \.cropCode) { crop in
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                Text(crop.cropName)
-                                                    .font(.subheadline)
-                                                    .fontWeight(.bold)
-                                                    .foregroundColor(Color(hex: "1B5E20"))
-                                                Text("$\(String(format: "%.1f", crop.avgPrice))/kg")
-                                                    .font(.caption)
-                                                    .foregroundColor(Color(hex: "388E3C"))
+                        switch viewModel.topVolume {
+                        case .loading:
+                            HStack(spacing: 16) {
+                                ForEach(0..<3) { _ in
+                                    SkeletonView()
+                                        .frame(width: 120, height: 80)
+                                }
+                            }
+                            .padding(.horizontal)
+                        case .failure:
+                            Text("無法載入熱門交易")
+                                .foregroundColor(.red)
+                                .padding(.horizontal)
+                        case .success(let topVolume):
+                            if !topVolume.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("🔥 今日熱門交易")
+                                        .font(.headline)
+                                        .foregroundColor(Color(hex: "2E7D32"))
+                                        .padding(.horizontal)
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 16) {
+                                            ForEach(topVolume) { crop in
+                                                VStack(alignment: .leading, spacing: 6) {
+                                                    Text(crop.cropName)
+                                                        .font(.subheadline)
+                                                        .fontWeight(.bold)
+                                                        .foregroundColor(Color(hex: "1B5E20"))
+                                                    Text("$\(String(format: "%.1f", crop.avgPrice))/kg")
+                                                        .font(.caption)
+                                                        .foregroundColor(Color(hex: "388E3C"))
+                                                }
+                                                .padding()
+                                                .frame(width: 120, alignment: .leading)
+                                                .liquidGlass()
                                             }
-                                            .padding()
-                                            .frame(width: 120, alignment: .leading)
-                                            .liquidGlass()
                                         }
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 4)
                                     }
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 4)
                                 }
                             }
                         }
@@ -120,35 +152,52 @@ struct HomeScreen: View {
                                 .foregroundColor(Color(hex: "2E7D32"))
                                 .padding(.horizontal)
                             
-                            LazyVStack(spacing: 16) {
-                                ForEach(viewModel.dailyPrices, id: \.cropCode) { produce in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(produce.cropName)
-                                                .font(.headline)
-                                                .foregroundColor(Color(hex: "1B5E20"))
-                                            Text(produce.marketName)
-                                                .font(.caption)
-                                                .foregroundColor(Color(hex: "4CAF50"))
-                                        }
-                                        Spacer()
-                                        
-                                        Text("$\(String(format: "%.1f", produce.avgPrice))")
-                                            .font(.title3)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(Color(hex: "2E7D32"))
-                                        
-                                        Button(action: {
-                                            ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
-                                        }) {
-                                            Image(systemName: "speaker.wave.2.fill")
-                                                .foregroundColor(Color(hex: "388E3C"))
-                                                .padding(.leading, 12)
+                            switch viewModel.dailyPrices {
+                            case .loading:
+                                ForEach(0..<5) { _ in
+                                    SkeletonView()
+                                        .frame(height: 80)
+                                        .padding(.horizontal)
+                                }
+                            case .failure(let error):
+                                ErrorView(message: error.localizedDescription) {
+                                    Task { await viewModel.fetchDashboardData() }
+                                }
+                            case .success(let dailyPrices):
+                                if dailyPrices.isEmpty {
+                                    EmptyStateView(message: "今日暫無菜價資料", systemImage: "cart")
+                                } else {
+                                    LazyVStack(spacing: 16) {
+                                        ForEach(dailyPrices) { produce in
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(produce.cropName)
+                                                        .font(.headline)
+                                                        .foregroundColor(Color(hex: "1B5E20"))
+                                                    Text(produce.marketName)
+                                                        .font(.caption)
+                                                        .foregroundColor(Color(hex: "4CAF50"))
+                                                }
+                                                Spacer()
+                                                
+                                                Text("$\(String(format: "%.1f", produce.avgPrice))")
+                                                    .font(.title3)
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(Color(hex: "2E7D32"))
+                                                
+                                                Button(action: {
+                                                    ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
+                                                }) {
+                                                    Image(systemName: "speaker.wave.2.fill")
+                                                        .foregroundColor(Color(hex: "388E3C"))
+                                                        .padding(.leading, 12)
+                                                }
+                                            }
+                                            .padding()
+                                            .liquidGlass()
+                                            .padding(.horizontal)
                                         }
                                     }
-                                    .padding()
-                                    .liquidGlass()
-                                    .padding(.horizontal)
                                 }
                             }
                         }

@@ -1,9 +1,17 @@
 import Foundation
 
-class ProduceService {
+protocol ProduceServiceProtocol {
+    func getDailyPrices(keyword: String, page: Int, pageSize: Int) async throws -> PaginatedResponse<ProduceDto>
+    func getPriceAnomalies() async throws -> [PriceAnomalyDto]
+    func getTopVolumeCrops() async throws -> [ProduceDto]
+    func fetchPriceHistory(produceId: String) async throws -> [HistoricalPriceDto]
+    func getForecast(produceId: String) async throws -> PricePredictionResponse
+    func getFavorites() async throws -> [FavoriteAlertDto]
+}
+
+class ProduceService: ProduceServiceProtocol {
     static let shared = ProduceService()
-    // 使用真實的 App URL
-    private let baseURL = "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce"
+    private let baseURL = Configuration.apiBaseUrl
     
     // 使用真實的 Device ID (UUID)
     private var deviceId: String {
@@ -20,9 +28,9 @@ class ProduceService {
     
     // 邏輯修正：加入分頁與搜尋參數，並使用 Codable 自動將 JSON 轉為 Swift Struct (ProduceDto)
     // 解決問題：原本只回傳 Data，App 端需要自己手動解析 JSON，容易出錯且欄位不一致。
-    func fetchProduceData(keyword: String = "", page: Int = 1, completion: @escaping (Result<PaginatedResponse<ProduceDto>, Error>) -> Void) {
+    func fetchProduceData(keyword: String = "", page: Int = 1, pageSize: Int = 20, completion: @escaping (Result<PaginatedResponse<ProduceDto>, Error>) -> Void) {
         let encodedKeyword = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "\(baseURL)/daily-prices?keyword=\(encodedKeyword)&page=\(page)&pageSize=20"
+        let urlString = "\(baseURL)/daily-prices?keyword=\(encodedKeyword)&page=\(page)&pageSize=\(pageSize)"
         
         guard let url = URL(string: urlString) else { return }
         
@@ -309,7 +317,7 @@ class ProduceService {
     // Async/Await wrappers
     func getDailyPrices(keyword: String = "", page: Int = 1, pageSize: Int = 20) async throws -> PaginatedResponse<ProduceDto> {
         return try await withCheckedThrowingContinuation { continuation in
-            fetchProduceData(keyword: keyword, page: page) { result in
+            fetchProduceData(keyword: keyword, page: page, pageSize: pageSize) { result in
                 continuation.resume(with: result)
             }
         }
