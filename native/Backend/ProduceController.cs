@@ -368,32 +368,22 @@ namespace ProduceApi.Controllers
 
         // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
         [HttpGet("seasonal")]
-        public IActionResult GetSeasonalCrops()
+        public async Task<IActionResult> GetSeasonalCrops()
         {
             int currentMonth = System.DateTime.Now.Month;
-            var seasonalCrops = new List<SeasonalCropDto>();
-
-            // 簡易模擬當季農產品資料庫
-            if (currentMonth >= 3 && currentMonth <= 5)
-            {
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "LA1", CropName = "甘藍", Season = "春季", Description = "春季高麗菜鮮甜多汁" });
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "FJ1", CropName = "番茄", Season = "春季", Description = "春季番茄酸甜適中" });
-            }
-            else if (currentMonth >= 6 && currentMonth <= 8)
-            {
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "T1", CropName = "西瓜", Season = "夏季", Description = "消暑解渴最佳選擇" });
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "P1", CropName = "木瓜", Season = "夏季", Description = "夏季木瓜香甜可口" });
-            }
-            else if (currentMonth >= 9 && currentMonth <= 11)
-            {
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "F1", CropName = "柑桔", Season = "秋季", Description = "秋季柑桔富含維他命C" });
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "S1", CropName = "葡萄", Season = "秋季", Description = "秋季葡萄果肉飽滿" });
-            }
-            else
-            {
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "SA1", CropName = "蘿蔔", Season = "冬季", Description = "冬季蘿蔔賽人蔘" });
-                seasonalCrops.Add(new SeasonalCropDto { CropCode = "LH1", CropName = "菠菜", Season = "冬季", Description = "冬季菠菜營養豐富" });
-            }
+            
+            // 從資料庫查詢當季農產品
+            var seasonalCrops = await _dbContext.SeasonalCrops
+                .Where(c => (c.StartMonth <= currentMonth && c.EndMonth >= currentMonth) || 
+                           (c.StartMonth > c.EndMonth && (currentMonth >= c.StartMonth || currentMonth <= c.EndMonth))) // Handle winter crossing year (e.g., Dec to Feb)
+                .Select(c => new SeasonalCropDto 
+                { 
+                    CropCode = c.CropCode, 
+                    CropName = c.CropName, 
+                    Season = c.Season, 
+                    Description = c.Description 
+                })
+                .ToListAsync();
 
             return Ok(seasonalCrops);
         }
@@ -540,34 +530,22 @@ namespace ProduceApi.Controllers
             var topDrops = priceDrops.OrderByDescending(p => p.IncreasePercentage).Take(3).ToList();
             var recipes = new List<object>();
 
-            // 本地食譜資料庫
-            var recipeDatabase = new Dictionary<string, object>
-            {
-                { "番茄", new { RecipeName = "番茄炒蛋", MainIngredients = new[] { "番茄", "雞蛋" }, ImageUrl = "🍅", Steps = new[] { "1. 番茄切塊", "2. 雞蛋打散炒熟", "3. 加入番茄拌炒", "4. 加點番茄醬與糖調味" } } },
-                { "高麗菜", new { RecipeName = "蒜炒高麗菜", MainIngredients = new[] { "高麗菜", "蒜頭" }, ImageUrl = "🥬", Steps = new[] { "1. 高麗菜洗淨切片", "2. 蒜頭爆香", "3. 放入高麗菜大火快炒", "4. 加鹽調味即可" } } },
-                { "青江菜", new { RecipeName = "青江菜炒肉絲", MainIngredients = new[] { "青江菜", "豬肉絲" }, ImageUrl = "🥬", Steps = new[] { "1. 青江菜洗淨切段", "2. 肉絲醃製", "3. 炒熟肉絲後加入青江菜", "4. 拌炒均勻即可" } } },
-                { "小白菜", new { RecipeName = "小白菜豆腐湯", MainIngredients = new[] { "小白菜", "豆腐" }, ImageUrl = "🥬", Steps = new[] { "1. 煮滾高湯", "2. 放入切塊豆腐", "3. 加入小白菜煮熟", "4. 加鹽調味" } } },
-                { "洋蔥", new { RecipeName = "洋蔥炒蛋", MainIngredients = new[] { "洋蔥", "雞蛋" }, ImageUrl = "🧅", Steps = new[] { "1. 洋蔥切絲", "2. 炒軟洋蔥", "3. 倒入蛋液炒熟", "4. 加鹽調味" } } },
-                { "胡蘿蔔", new { RecipeName = "紅蘿蔔炒肉絲", MainIngredients = new[] { "胡蘿蔔", "豬肉絲" }, ImageUrl = "🥕", Steps = new[] { "1. 胡蘿蔔切絲", "2. 肉絲醃製", "3. 炒熟肉絲後加入胡蘿蔔絲", "4. 拌炒均勻即可" } } },
-                { "花椰菜", new { RecipeName = "清炒花椰菜", MainIngredients = new[] { "花椰菜", "蒜頭" }, ImageUrl = "🥦", Steps = new[] { "1. 花椰菜切小朵洗淨", "2. 滾水川燙", "3. 蒜頭爆香", "4. 加入花椰菜拌炒" } } },
-                { "茄子", new { RecipeName = "魚香茄子", MainIngredients = new[] { "茄子", "豬絞肉" }, ImageUrl = "🍆", Steps = new[] { "1. 茄子切段炸軟", "2. 炒香絞肉與辛香料", "3. 加入茄子與醬汁", "4. 悶煮入味" } } },
-                { "馬鈴薯", new { RecipeName = "馬鈴薯燉肉", MainIngredients = new[] { "馬鈴薯", "豬肉塊" }, ImageUrl = "🥔", Steps = new[] { "1. 馬鈴薯與肉切塊", "2. 炒香肉塊", "3. 加入馬鈴薯與醬油、糖、水", "4. 燉煮至軟爛" } } },
-                { "玉米", new { RecipeName = "玉米排骨湯", MainIngredients = new[] { "玉米", "排骨" }, ImageUrl = "🌽", Steps = new[] { "1. 排骨川燙去血水", "2. 玉米切段", "3. 將排骨與玉米放入鍋中", "4. 加水燉煮一小時，加鹽調味" } } }
-            };
+            // 從資料庫查詢食譜
+            var allRecipes = await _dbContext.Recipes.ToListAsync();
 
             foreach (var drop in topDrops)
             {
-                // 尋找匹配的食譜
-                var matchedRecipeKey = recipeDatabase.Keys.FirstOrDefault(k => drop.CropName.Contains(k));
-                if (matchedRecipeKey != null)
+                // 尋找匹配的食譜 (模糊搜尋)
+                var matchedRecipe = allRecipes.FirstOrDefault(r => drop.CropName.Contains(r.MainIngredient));
+                
+                if (matchedRecipe != null)
                 {
-                    dynamic recipeInfo = recipeDatabase[matchedRecipeKey];
                     recipes.Add(new {
-                        RecipeName = recipeInfo.RecipeName,
-                        MainIngredients = recipeInfo.MainIngredients,
+                        RecipeName = matchedRecipe.RecipeName,
+                        MainIngredients = JsonSerializer.Deserialize<string[]>(matchedRecipe.IngredientsJson),
                         Reason = $"今日 {drop.CropName} 價格大跌 {drop.IncreasePercentage}%，每公斤只要 {drop.CurrentPrice} 元！",
-                        ImageUrl = recipeInfo.ImageUrl,
-                        Steps = recipeInfo.Steps
+                        ImageUrl = matchedRecipe.ImageUrl,
+                        Steps = JsonSerializer.Deserialize<string[]>(matchedRecipe.StepsJson)
                     });
                 }
             }

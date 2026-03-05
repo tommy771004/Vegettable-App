@@ -26,7 +26,7 @@ public class ProduceRepository {
             @Override
             public void onSuccess(PaginatedResponse<ProduceDto> response) {
                 // 2. 成功取得資料後，非同步寫入 SQLite 本地資料庫 (快取)
-                // localDb.saveProduceList(response.data); 
+                localDb.saveProduceList(response.data); 
                 
                 // 3. 將最新資料回傳給 UI (ViewModel / Activity)
                 callback.onSuccess(response);
@@ -35,14 +35,14 @@ public class ProduceRepository {
             @Override
             public void onFailure(Exception e) {
                 // 4. 如果斷網或 API 伺服器掛掉，改從 SQLite 讀取最後一次的快取資料 (離線模式)
-                // List<ProduceDto> cachedData = localDb.getProduceList(keyword, page);
-                // if (cachedData != null && !cachedData.isEmpty()) {
-                //     PaginatedResponse<ProduceDto> offlineResponse = new PaginatedResponse<>();
-                //     offlineResponse.data = cachedData;
-                //     callback.onSuccess(offlineResponse);
-                // } else {
+                List<ProduceDto> cachedData = localDb.getProduceList(keyword, page);
+                if (cachedData != null && !cachedData.isEmpty()) {
+                    PaginatedResponse<ProduceDto> offlineResponse = new PaginatedResponse<>();
+                    offlineResponse.data = cachedData;
+                    callback.onSuccess(offlineResponse);
+                } else {
                     callback.onFailure(e);
-                // }
+                }
             }
         });
     }

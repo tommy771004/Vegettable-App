@@ -18,19 +18,19 @@ class ProduceRepository {
             switch result {
             case .success(let response):
                 // 2. 成功取得資料後，非同步寫入 CoreData 本地資料庫 (快取)
-                // self.localDb.saveProduceList(response.data)
+                self.localDb.saveProduceList(response.data)
                 
                 // 3. 將最新資料回傳給 UI (ViewModel / ViewController)
                 completion(.success(response))
                 
             case .failure(let error):
                 // 4. 如果斷網或 API 伺服器掛掉，改從 CoreData 讀取最後一次的快取資料 (離線模式)
-                // if let cachedData = self.localDb.getProduceList(keyword: keyword, page: page) {
-                //     let offlineResponse = PaginatedResponse(currentPage: page, totalPages: 1, totalItems: cachedData.count, data: cachedData)
-                //     completion(.success(offlineResponse))
-                // } else {
+                if let cachedData = self.localDb.getProduceList(keyword: keyword, page: page) {
+                    let offlineResponse = PaginatedResponse(currentPage: page, totalPages: 1, totalItems: cachedData.count, data: cachedData)
+                    completion(.success(offlineResponse))
+                } else {
                     completion(.failure(error))
-                // }
+                }
             }
         }
     }
