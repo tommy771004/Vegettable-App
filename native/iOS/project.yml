@@ -1,0 +1,28 @@
+name: ProduceApp
+options:
+  bundleIdPrefix: com.example
+targets:
+  ProduceApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [ProduceApp]
+    settings:
+      base:
+        INFOPLIST_FILE: ProduceApp/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.produceapp
+    dependencies:
+      - package: Alamofire
+  ProduceWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [ProduceWidget]
+    settings:
+      base:
+        INFOPLIST_FILE: ProduceWidget/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.produceapp.widget
+packages:
+  Alamofire:
+    url: https://github.com/Alamofire/Alamofire
+    majorVersion: 5.8.1

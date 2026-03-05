@@ -33,7 +33,6 @@ const seasonalProduce = [
 
 export default function App() {
   const [isElderlyMode, setIsElderlyMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
   const [alertPrice, setAlertPrice] = useState('30');
   const [isSpeaking, setIsSpeaking] = useState(false);
 
