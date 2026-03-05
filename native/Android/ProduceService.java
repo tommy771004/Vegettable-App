@@ -18,14 +18,31 @@ import okhttp3.Response;
 import org.json.JSONObject;
 
 public class ProduceService {
-    private static final String BASE_URL = "https://api.yourbackend.com/api/produce";
+    // 使用真實的 App URL
+    private static final String BASE_URL = "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce";
     
-    // 邏輯修正：將 AuthInterceptor 注入 OkHttpClient，自動帶上 X-User-Id
-    private OkHttpClient client = new OkHttpClient.Builder()
-            .addInterceptor(new AuthInterceptor("user-device-uuid-12345"))
-            .build();
-            
+    private OkHttpClient client;
     private Gson gson = new Gson();
+    private android.content.Context context;
+
+    public ProduceService(android.content.Context context) {
+        this.context = context;
+        String deviceId = getDeviceId(context);
+        
+        this.client = new OkHttpClient.Builder()
+            .addInterceptor(new AuthInterceptor(deviceId))
+            .build();
+    }
+
+    private String getDeviceId(android.content.Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE);
+        String uuid = prefs.getString("device_uuid", null);
+        if (uuid == null) {
+            uuid = java.util.UUID.randomUUID().toString();
+            prefs.edit().putString("device_uuid", uuid).apply();
+        }
+        return uuid;
+    }
 
     public interface ProduceDataCallback {
         void onSuccess(PaginatedResponse<ProduceDto> response);

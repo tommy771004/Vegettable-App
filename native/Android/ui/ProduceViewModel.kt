@@ -35,6 +35,9 @@ class ProduceViewModel(private val produceService: ProduceService) : ViewModel()
     private val _predictedData = MutableStateFlow<List<PricePredictionDto>>(emptyList())
     val predictedData: StateFlow<List<PricePredictionDto>> = _predictedData
 
+    private val _seasonalCrops = MutableStateFlow<List<SeasonalCropDto>>(emptyList())
+    val seasonalCrops: StateFlow<List<SeasonalCropDto>> = _seasonalCrops
+
     init {
         fetchDashboardData()
     }
@@ -44,33 +47,42 @@ class ProduceViewModel(private val produceService: ProduceService) : ViewModel()
             try {
                 _anomalies.value = produceService.getPriceAnomalies()
                 _topVolume.value = produceService.getTopVolumeCrops()
+                _seasonalCrops.value = produceService.getSeasonalCrops()
                 
                 val response = produceService.getDailyPrices("", 1, 20)
                 _dailyPrices.value = response.data
 
-                // 模擬取得高麗菜的歷史與預測資料 (供圖表展示)
-                _historicalData.value = listOf(
-                    HistoricalPriceDto("10/01", 22.5f),
-                    HistoricalPriceDto("10/02", 24.0f),
-                    HistoricalPriceDto("10/03", 23.5f),
-                    HistoricalPriceDto("10/04", 28.0f),
-                    HistoricalPriceDto("10/05", 35.0f) // 暴漲點
-                )
+                // 取得高麗菜的歷史與預測資料 (供圖表展示)
+                // 這裡暫時寫死 "LA1" (甘藍/高麗菜) 作為範例，實際應由 UI 傳入
+                val history = produceService.getPriceHistory("LA1")
+                _historicalData.value = history
+                
+                val forecast = produceService.getPriceForecast("LA1")
+                // Convert forecast response to list of PricePredictionDto if needed
+                // Assuming forecast.trend and message are used elsewhere or we just map a simple prediction
+                // For now, let's just map the recent average as a prediction point for simplicity or create a dummy prediction based on trend
+                // Since the API returns a summary, we might need to adjust the UI or API to return a list of predicted points.
+                // For this step, I will create a simple prediction point based on the trend.
+                val nextDayPrice = if (forecast.trend == "Up") forecast.recentAverage * 1.05 else forecast.recentAverage * 0.95
                 _predictedData.value = listOf(
-                    PricePredictionDto("10/06", 33.0f),
-                    PricePredictionDto("10/07", 30.0f),
-                    PricePredictionDto("10/08", 28.5f)
+                    PricePredictionDto("Next Day", nextDayPrice.toFloat())
                 )
 
-                // 模擬取得我的收藏與追蹤資料
-                _favorites.value = listOf(
-                    FavoriteAlertDto("LA1", "甘藍 (初秋)", 22.5f, 25.0f, true), // 已達標 (低於目標價)
-                    FavoriteAlertDto("FJ1", "番茄 (黑柿)", 45.0f, 35.0f, false), // 未達標
-                    FavoriteAlertDto("SE1", "青蔥 (粉蔥)", 120.0f, 80.0f, false) // 未達標
-                )
+                // 取得我的收藏與追蹤資料
+                _favorites.value = produceService.getFavorites()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    suspend fun searchCropPrice(name: String): Double? {
+        return try {
+            val response = produceService.getDailyPrices(name, 1, 1)
+            response.data.firstOrNull()?.avgPrice
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }

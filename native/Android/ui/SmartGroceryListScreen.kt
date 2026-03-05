@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 data class GroceryItem(
     val id: Int,
@@ -28,17 +30,12 @@ data class GroceryItem(
 )
 
 @Composable
-fun SmartGroceryListScreen(modifier: Modifier = Modifier) {
-    // 模擬清單資料
-    var items by remember {
-        mutableStateOf(
-            listOf(
-                GroceryItem(1, "高麗菜", 1, 45.0),
-                GroceryItem(2, "番茄", 2, 25.0),
-                GroceryItem(3, "青蔥", 1, 30.0)
-            )
-        )
-    }
+fun SmartGroceryListScreen(
+    modifier: Modifier = Modifier,
+    viewModel: ProduceViewModel = viewModel()
+) {
+    val scope = rememberCoroutineScope()
+    var items by remember { mutableStateOf(emptyList<GroceryItem>()) }
     
     var newItemName by remember { mutableStateOf("") }
 
@@ -68,13 +65,16 @@ fun SmartGroceryListScreen(modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     if (newItemName.isNotBlank()) {
-                        items = items + GroceryItem(
-                            id = items.size + 1,
-                            name = newItemName,
-                            quantity = 1,
-                            estimatedPricePerUnit = 35.0 // 模擬預估價格
-                        )
-                        newItemName = ""
+                        scope.launch {
+                            val price = viewModel.searchCropPrice(newItemName) ?: 0.0
+                            items = items + GroceryItem(
+                                id = items.size + 1,
+                                name = newItemName,
+                                quantity = 1,
+                                estimatedPricePerUnit = price
+                            )
+                            newItemName = ""
+                        }
                     }
                 },
                 modifier = Modifier.height(56.dp)

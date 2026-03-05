@@ -2,10 +2,19 @@ import Foundation
 
 class ProduceService {
     static let shared = ProduceService()
-    private let baseURL = "https://api.yourbackend.com/api/produce"
+    // 使用真實的 App URL
+    private let baseURL = "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce"
     
-    // 模擬使用者的 Device ID 或 UUID
-    private let deviceId = "user-device-uuid-12345"
+    // 使用真實的 Device ID (UUID)
+    private var deviceId: String {
+        if let uuid = UserDefaults.standard.string(forKey: "device_uuid") {
+            return uuid
+        } else {
+            let uuid = UUID().uuidString
+            UserDefaults.standard.set(uuid, forKey: "device_uuid")
+            return uuid
+        }
+    }
     
     private init() {}
     
@@ -295,5 +304,76 @@ class ProduceService {
                 completion(.failure(error))
             }
         }.resume()
+    }
+
+    // Async/Await wrappers
+    func getDailyPrices(keyword: String = "", page: Int = 1, pageSize: Int = 20) async throws -> PaginatedResponse<ProduceDto> {
+        return try await withCheckedThrowingContinuation { continuation in
+            fetchProduceData(keyword: keyword, page: page) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    func getPriceAnomalies() async throws -> [PriceAnomalyDto] {
+        return try await withCheckedThrowingContinuation { continuation in
+            getPriceAnomalies { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    func getTopVolumeCrops() async throws -> [ProduceDto] {
+        return try await withCheckedThrowingContinuation { continuation in
+            getTopVolumeCrops { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    func fetchPriceHistory(produceId: String) async throws -> [HistoricalPriceDto] {
+        return try await withCheckedThrowingContinuation { continuation in
+            fetchPriceHistory(produceId: produceId) { result in
+                switch result {
+                case .success(let data):
+                    do {
+                        let decoder = JSONDecoder()
+                        let dtos = try decoder.decode([HistoricalPriceDto].self, from: data)
+                        continuation.resume(returning: dtos)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func getForecast(produceId: String) async throws -> PricePredictionResponse {
+        return try await withCheckedThrowingContinuation { continuation in
+            getForecast(produceId: produceId) { result in
+                switch result {
+                case .success(let data):
+                    do {
+                        let decoder = JSONDecoder()
+                        let response = try decoder.decode(PricePredictionResponse.self, from: data)
+                        continuation.resume(returning: response)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func getFavorites() async throws -> [FavoriteAlertDto] {
+        return try await withCheckedThrowingContinuation { continuation in
+            getFavorites { result in
+                continuation.resume(with: result)
+            }
+        }
     }
 }

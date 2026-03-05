@@ -8,6 +8,8 @@ import androidx.compose.material.Card
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,18 +17,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.produceapp.data.SeasonalCropDto
 
 data class SeasonalCrop(val name: String, val reason: String, val icon: String)
 
 @Composable
-fun SeasonalCropCalendar(modifier: Modifier = Modifier) {
-    // 模擬從後端 GET /api/produce/seasonal 取得的當季資料
-    val currentMonthCrops = listOf(
-        SeasonalCrop("高麗菜", "盛產期，價格平穩", "🥬"),
-        SeasonalCrop("白蘿蔔", "冬季最甜，適合燉湯", "蘿蔔"), // Emoji 替代
-        SeasonalCrop("菠菜", "當季蔬菜，營養價值高", "🥬"),
-        SeasonalCrop("番茄", "溫室盛產，酸甜適中", "🍅")
-    )
+fun SeasonalCropCalendar(
+    modifier: Modifier = Modifier,
+    viewModel: ProduceViewModel = viewModel()
+) {
+    val seasonalCrops by viewModel.seasonalCrops.collectAsState()
+
+    val currentMonthCrops = if (seasonalCrops.isNotEmpty()) {
+        seasonalCrops.map { 
+            SeasonalCrop(it.cropName, it.description, "🥬") // Default icon, ideally map from cropName
+        }
+    } else {
+        // Fallback or loading state if needed, but for now empty list or keep mock as placeholder until loaded?
+        // Better to show empty or loading.
+        emptyList()
+    }
+
+    if (currentMonthCrops.isEmpty()) return // Or show loading
 
     Column(modifier = modifier.fillMaxWidth().padding(8.dp)) {
         Text(

@@ -14,29 +14,50 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
-import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.example.produceapp.MainActivity
+import com.example.produceapp.data.ProduceDatabase
+import kotlinx.coroutines.flow.first
 
 // 1. 定義 Widget 的 UI (使用 Glance - Jetpack Compose for Widgets)
 class ProduceWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val db = ProduceDatabase.getDatabase(context)
+        val dao = db.produceDao()
+        
+        var cropName = "載入中..."
+        var price = "--"
+        var trend = ""
+
+        try {
+            // 嘗試從資料庫取得第一筆資料或特定作物 (例如高麗菜 LA1)
+            val produceList = dao.getAllProduce().first()
+            val targetCrop = produceList.find { it.cropCode == "LA1" } ?: produceList.firstOrNull()
+            
+            if (targetCrop != null) {
+                cropName = targetCrop.cropName
+                price = "$ ${targetCrop.averagePrice} / kg"
+                // 趨勢需比較歷史資料，這裡暫時留空或顯示簡單狀態
+                trend = "" 
+            } else {
+                cropName = "無資料"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            cropName = "錯誤"
+        }
+
         provideContent {
-            WidgetContent()
+            WidgetContent(cropName, price, trend)
         }
     }
 
     @Composable
-    private fun WidgetContent() {
-        // 模擬從本地資料庫讀取今日高麗菜價格
-        val cropName = "高麗菜"
-        val price = "$ 25.0 / kg"
-        val trend = "▲ 15%"
-
+    private fun WidgetContent(cropName: String, price: String, trend: String) {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -55,11 +76,13 @@ class ProduceWidget : GlanceAppWidget() {
                 style = TextStyle(fontWeight = FontWeight.Bold, color = androidx.glance.unit.ColorProvider(Color.Black)),
                 modifier = GlanceModifier.padding(top = 8.dp)
             )
-            Text(
-                text = trend,
-                style = TextStyle(color = androidx.glance.unit.ColorProvider(Color.Red)),
-                modifier = GlanceModifier.padding(top = 4.dp)
-            )
+            if (trend.isNotEmpty()) {
+                Text(
+                    text = trend,
+                    style = TextStyle(color = androidx.glance.unit.ColorProvider(Color.Red)),
+                    modifier = GlanceModifier.padding(top = 4.dp)
+                )
+            }
         }
     }
 }

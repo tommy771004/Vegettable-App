@@ -21,20 +21,55 @@ public class PriceAlertWorker extends Worker {
     public Result doWork() {
         Log.d(TAG, "Checking for price drops in background...");
         
-        // 1. Fetch latest prices from ProduceService
-        // 2. Query local SQLite (ProduceDatabaseHelper) for user's favorite items & target prices
-        // 3. Compare current prices with target prices
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        final Result[] result = {Result.success()};
         
-        // Mocking a price drop detection
-        boolean priceDropped = true; 
-        String produceName = "高麗菜";
-        double currentPrice = 15.5;
+        com.example.produce.data.ProduceService service = new com.example.produce.data.ProduceService(getApplicationContext());
+        
+        service.getFavorites(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                Log.e(TAG, "Failed to fetch favorites", e);
+                result[0] = Result.retry();
+                latch.countDown();
+            }
 
-        if (priceDropped) {
-            sendNotification(produceName, currentPrice);
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws java.io.IOException {
+                if (!response.isSuccessful()) {
+                    Log.e(TAG, "Server returned error: " + response.code());
+                    result[0] = Result.failure();
+                    latch.countDown();
+                    return;
+                }
+                
+                String json = response.body().string();
+                try {
+                    java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<java.util.List<com.example.produce.models.FavoriteAlertDto>>(){}.getType();
+                    java.util.List<com.example.produce.models.FavoriteAlertDto> favorites = new com.google.gson.Gson().fromJson(json, type);
+                    
+                    if (favorites != null) {
+                        for (com.example.produce.models.FavoriteAlertDto fav : favorites) {
+                            if (fav.isAlertTriggered) {
+                                sendNotification(fav.produceName, fav.currentPrice);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing favorites", e);
+                } finally {
+                    latch.countDown();
+                }
+            }
+        });
+
+        try {
+            latch.await(30, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            return Result.failure();
         }
-
-        return Result.success();
+        
+        return result[0];
     }
 
     private void sendNotification(String produceName, double price) {

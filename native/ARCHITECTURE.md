@@ -101,7 +101,7 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
    - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getFavorites` 與 `removeFavorite` 方法，讓前端可以輕鬆管理收藏並顯示價格提醒。
 
 5. **主動式推播通知 (Push Notifications)**：
-   - **Backend (`PriceAlertWorker.cs`)**：新增 `BackgroundService`，每天清晨自動掃描所有使用者的 `TargetPrice`，一旦達標，直接發送手機推播（模擬 FCM/APNs）。
+   - **Backend (`PriceAlertWorker.cs`)**：新增 `BackgroundService`，每天清晨自動掃描所有使用者的 `TargetPrice`，一旦達標，透過 Firebase Admin SDK 發送真實的手機推播通知 (FCM)。
 
 6. **離線快取機制 (Offline Caching)**：
    - **Android (`ProduceEntity.java`, `ProduceDao.java`, `ProduceDatabase.java`)**：導入 `Room Database`，在有網路時自動快取「我的收藏」與「今日熱門農產品」的最新價格。

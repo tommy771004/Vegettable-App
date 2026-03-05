@@ -32,11 +32,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         guard let token = fcmToken else { return }
         
         // 將 Token 送回您的後端伺服器
-        guard let url = URL(string: "https://api.yourbackend.com/api/produce/fcm-token") else { return }
+        guard let url = URL(string: "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce/fcm-token") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("user-device-uuid-12345", forHTTPHeaderField: "X-User-Id") // 模擬使用者 ID
+        
+        // Get device ID
+        let deviceId = UserDefaults.standard.string(forKey: "device_uuid") ?? UUID().uuidString
+        UserDefaults.standard.set(deviceId, forKey: "device_uuid")
+        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
         
         let body: [String: String] = ["token": token]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)

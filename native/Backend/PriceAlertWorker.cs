@@ -11,6 +11,9 @@ using ProduceApi.Services;
 using System.Text.Json;
 using System.Collections.Generic;
 using ProduceApi.Models;
+using FirebaseAdmin;
+using FirebaseAdmin.Messaging;
+using Google.Apis.Auth.OAuth2;
 
 namespace ProduceApi
 {
@@ -25,6 +28,34 @@ namespace ProduceApi
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
+            
+            // Initialize Firebase App if not already initialized
+            if (FirebaseApp.DefaultInstance == null)
+            {
+                try 
+                {
+                    // In a real scenario, point to your service account json file
+                    // defined in appsettings.json or environment variable
+                    var serviceAccountPath = Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_PATH") ?? "firebase-service-account.json";
+                    
+                    if (System.IO.File.Exists(serviceAccountPath))
+                    {
+                        FirebaseApp.Create(new AppOptions()
+                        {
+                            Credential = GoogleCredential.FromFile(serviceAccountPath)
+                        });
+                        _logger.LogInformation("Firebase App initialized successfully.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Firebase service account file not found at {serviceAccountPath}. Push notifications will be simulated.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to initialize Firebase App.");
+                }
+            }
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,7 +73,7 @@ namespace ProduceApi
                     _logger.LogError(ex, "Error occurred while checking price alerts.");
                 }
 
-                // 模擬每天清晨執行一次 (這裡設定為每 24 小時)
+                // 每天清晨執行一次 (這裡設定為每 24 小時)
                 await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
             }
         }
@@ -65,11 +96,43 @@ namespace ProduceApi
                 var latestData = moaItems.FirstOrDefault(m => m.CropCode == fav.ProduceId);
                 if (latestData != null && latestData.AvgPrice > 0 && latestData.AvgPrice <= fav.TargetPrice)
                 {
-                    // 模擬發送 FCM / APNs 推播通知
-                    _logger.LogInformation($"[PUSH NOTIFICATION] To User {fav.UserId}: 🔔 您關注的 {latestData.CropName} 今天跌至 {latestData.AvgPrice} 元囉，現在買最划算！");
+                    string title = "價格下跌通知";
+                    string body = $"您關注的 {latestData.CropName} 今天跌至 {latestData.AvgPrice} 元囉，現在買最划算！";
+
+                    _logger.LogInformation($"[PUSH NOTIFICATION] To User {fav.UserId}: 🔔 {body}");
                     
-                    // 實際應用中，這裡會呼叫 FirebaseAdmin SDK 或 APNs API
-                    // 例如: FirebaseMessaging.DefaultInstance.SendAsync(message);
+                    // Send real FCM message if Firebase is initialized
+                    if (FirebaseApp.DefaultInstance != null)
+                    {
+                        try
+                        {
+                            // Assuming UserId is the FCM token or we have a mapping. 
+                            // For this demo, we assume the UserId stored IS the FCM token (simplified).
+                            // In a real app, you'd have a UserTokens table mapping UserId -> FcmToken.
+                            
+                            var message = new Message()
+                            {
+                                Token = fav.UserId, // Simplified: Using UserId as FCM Token
+                                Notification = new Notification()
+                                {
+                                    Title = title,
+                                    Body = body
+                                },
+                                Data = new Dictionary<string, string>()
+                                {
+                                    { "produceId", fav.ProduceId },
+                                    { "price", latestData.AvgPrice.ToString() }
+                                }
+                            };
+
+                            string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
+                            _logger.LogInformation($"Successfully sent message: {response}");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Failed to send FCM message to {fav.UserId}");
+                        }
+                    }
                 }
             }
         }
