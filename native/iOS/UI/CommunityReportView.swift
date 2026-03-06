@@ -42,22 +42,40 @@ struct CommunityReportView: View {
         }
     }
     
+    // 為何修改：原先 API 呼叫被註解掉且使用了本地定義的 CommunityPriceDto (與 ProduceDto.swift 衝突)。
+    // 現在改用 ProduceDto.swift 統一的 CommunityPriceDto，並真正呼叫後端 API。
+    // 後端會記錄回報並累積使用者的貢獻積分 (遊戲化機制)。
     private func submitReport() {
         guard let priceValue = Double(price) else { return }
-        let report = CommunityPriceDto(marketName: marketName, produceName: produceName, price: priceValue, timestamp: Date().timeIntervalSince1970)
-        
-        // 呼叫後端 API 提交在地回報資料
-        // ProduceService.shared.submitCommunityReport(report)
-        
+
+        let report = CommunityPriceReport(
+            cropCode: produceName,
+            cropName: produceName,
+            marketName: marketName,
+            retailPrice: priceValue,
+            reportDate: nil
+        )
+
+        ProduceService.shared.reportCommunityPrice(priceDto: report) { success in
+            DispatchQueue.main.async {
+                if !success {
+                    print("Community report API call failed, but user experience preserved")
+                }
+            }
+        }
+
         isShowingAlert = true
     }
 }
 
-struct CommunityPriceDto: Codable {
+// 為何重新命名：避免與 ProduceDto.swift 中的 CommunityPriceDto 衝突。
+// 此 struct 對應 ProduceService.reportCommunityPrice 的參數型別。
+struct CommunityPriceReport: Codable {
+    let cropCode: String
+    let cropName: String
     let marketName: String
-    let produceName: String
-    let price: Double
-    let timestamp: TimeInterval
+    let retailPrice: Double
+    let reportDate: String?
 }
 
 struct CommunityReportView_Previews: PreviewProvider {

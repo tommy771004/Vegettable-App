@@ -57,21 +57,45 @@ public class ElderlyModeActivity extends AppCompatActivity {
         }
     }
 
+    // 為何修改：原先只硬編碼高麗菜和番茄兩種蔬菜的回應，其他一律回「聽不懂」。
+    // 現在改為呼叫後端 API，將語音辨識結果當作關鍵字搜尋真實菜價，
+    // 讓長輩可以查詢任何農產品。
     private void processVoiceQuery(String query) {
-        // 簡易關鍵字比對，實務上可串接 Gemini AI 分析語意
-        if (query.contains("高麗菜")) {
-            String response = "阿嬤，今天台北一市場的高麗菜，批發價是一斤 25 元。";
-            tvResult.setText(response);
-            ttsHelper.speak(response);
-        } else if (query.contains("番茄")) {
-            String response = "阿嬤，今天牛番茄比較貴，一斤要 45 元喔。";
-            tvResult.setText(response);
-            ttsHelper.speak(response);
-        } else {
-            String response = "阿嬤，我聽不懂您說的菜名，請再說一次。";
-            tvResult.setText(response);
-            ttsHelper.speak(response);
-        }
+        String loadingMsg = "阿嬤，正在幫您查「" + query + "」的價格...";
+        tvResult.setText(loadingMsg);
+        ttsHelper.speak(loadingMsg);
+
+        com.example.produce.data.ProduceService produceService = new com.example.produce.data.ProduceService(this);
+        produceService.fetchProduceData(query, 1, new com.example.produce.data.ProduceService.ProduceDataCallback() {
+            @Override
+            public void onSuccess(com.example.produce.models.PaginatedResponse response) {
+                runOnUiThread(() -> {
+                    if (response.data != null && !response.data.isEmpty()) {
+                        Object first = response.data.get(0);
+                        // 使用 Gson 取得欄位 (簡化處理)
+                        com.google.gson.Gson gson = new com.google.gson.Gson();
+                        String json = gson.toJson(first);
+                        com.example.produce.models.ProduceDto dto = gson.fromJson(json, com.example.produce.models.ProduceDto.class);
+                        String reply = "阿嬤，今天" + dto.marketName + "的" + dto.cropName + "，批發價是一斤 " + (int) dto.avgPrice + " 元。";
+                        tvResult.setText(reply);
+                        ttsHelper.speak(reply);
+                    } else {
+                        String reply = "阿嬤，今天找不到「" + query + "」的價格，請換個菜名再試試。";
+                        tvResult.setText(reply);
+                        ttsHelper.speak(reply);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                runOnUiThread(() -> {
+                    String reply = "阿嬤，網路好像有問題，等一下再查看看。";
+                    tvResult.setText(reply);
+                    ttsHelper.speak(reply);
+                });
+            }
+        });
     }
 
     @Override

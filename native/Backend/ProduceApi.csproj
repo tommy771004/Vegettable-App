@@ -19,6 +19,10 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
+    <!-- 為何新增：PriceAlertWorker.cs 引用了 FirebaseAdmin 和 Google.Apis.Auth，
+         但 .csproj 中缺少這兩個套件參考，導致後端專案無法編譯。 -->
+    <PackageReference Include="FirebaseAdmin" Version="3.0.1" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
   </ItemGroup>
 
 </Project>

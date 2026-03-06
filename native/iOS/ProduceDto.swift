@@ -53,3 +53,29 @@ struct PriceAnomalyDto: Codable {
     let increasePercentage: Double
     let alertMessage: String
 }
+
+// 價格預測回應 DTO (對應後端 /forecast/{produceId} API)
+struct PricePredictionResponse: Codable {
+    let recentAverage: Double
+    let previousAverage: Double
+    let trend: String
+    let message: String
+}
+
+// 天氣預警 DTO (對應後端 /weather-alerts API)
+struct WeatherAlertDto: Codable {
+    let alertType: String
+    let severity: String?
+    let title: String?
+    let message: String?
+    let affectedCrops: [String]?
+}
+
+// 省錢食譜 DTO (對應後端 /budget-recipes API)
+struct BudgetRecipeDto: Codable {
+    let recipeName: String
+    let mainIngredients: [String]
+    let reason: String
+    let imageUrl: String
+    let steps: [String]
+}
