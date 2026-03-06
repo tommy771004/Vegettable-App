@@ -19,10 +19,17 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
-    <!-- 為何新增：PriceAlertWorker.cs 引用了 FirebaseAdmin 和 Google.Apis.Auth，
-         但 .csproj 中缺少這兩個套件參考，導致後端專案無法編譯。 -->
+    <!-- Firebase Admin SDK：PriceAlertWorker.cs 用於發送 FCM 推播通知 -->
     <PackageReference Include="FirebaseAdmin" Version="3.0.1" />
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
+
+    <!-- JWT Bearer 認證：
+         為何新增：原本 API 端點缺乏認證機制，任何人都可以直接呼叫所有 API。
+         加入 JWT (JSON Web Token) 後，行動端需先呼叫 /auth/token 取得 Token，
+         之後每次 API 請求都需在 Authorization Header 帶上 Bearer Token，
+         後端透過此套件驗證 Token 的合法性與有效期。 -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
