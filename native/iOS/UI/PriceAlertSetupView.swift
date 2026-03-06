@@ -42,12 +42,20 @@ struct PriceAlertSetupView: View {
         }
     }
     
+    // 為何修改：原先 API 呼叫被註解掉，按鈕按下去只彈 Alert 卻沒有真正同步到後端，
+    // 使用者設定的到價提醒不會生效。現在透過 syncFavorite 將提醒寫入後端，
+    // 後端 PriceAlertWorker 背景服務會定期檢查並發送 FCM 推播。
     private func setupAlert() {
         guard let priceValue = Double(targetPrice) else { return }
-        
-        // 呼叫後端 API 設定到價提醒 (FCM)
-        // ProduceService.shared.setPriceAlert(market: marketName, produce: produceName, targetPrice: priceValue)
-        
+
+        ProduceService.shared.syncFavorite(produceId: produceName, targetPrice: priceValue) { success in
+            DispatchQueue.main.async {
+                if success {
+                    PriceAlertNotifier.shared.requestPermission()
+                }
+            }
+        }
+
         isShowingAlert = true
     }
 }

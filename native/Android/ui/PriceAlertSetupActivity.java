@@ -37,12 +37,27 @@ public class PriceAlertSetupActivity extends AppCompatActivity {
             return;
         }
 
+        // 為何修改：原先 API 呼叫被註解掉，到價提醒沒有真正同步到後端。
+        // 現在透過 syncFavorite 將提醒寫入後端資料庫，
+        // 後端 PriceAlertWorker 會定期檢查並透過 FCM 發送推播通知。
         double targetPrice = Double.parseDouble(targetPriceStr);
 
-        // 呼叫後端 API 設定到價提醒 (FCM)
-        // produceService.setPriceAlert(market, produce, targetPrice).enqueue(...)
-        
-        Toast.makeText(this, "已設定到價提醒！", Toast.LENGTH_SHORT).show();
-        finish();
+        com.example.produce.data.ProduceService produceService = new com.example.produce.data.ProduceService(this);
+        produceService.syncFavorite(produce, targetPrice, new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(PriceAlertSetupActivity.this, "設定失敗，請檢查網路連線", Toast.LENGTH_SHORT).show();
+                });
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) {
+                runOnUiThread(() -> {
+                    Toast.makeText(PriceAlertSetupActivity.this, "已設定到價提醒！", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
+            }
+        });
     }
 }

@@ -38,13 +38,28 @@ public class CommunityReportActivity extends AppCompatActivity {
             return;
         }
 
+        // 為何修改：原先 API 呼叫被註解掉，回報資料只停留在前端沒有送到後端。
+        // 現在透過 ProduceService.reportCommunityPrice 真正呼叫後端 API，
+        // 後端會將回報存入資料庫並累積使用者的貢獻積分 (遊戲化機制)。
         double price = Double.parseDouble(priceStr);
         CommunityPriceDto report = new CommunityPriceDto(market, produce, price, System.currentTimeMillis());
 
-        // 呼叫後端 API 提交在地回報資料
-        // produceService.submitCommunityReport(report).enqueue(...)
-        
-        Toast.makeText(this, "感謝您的回報！", Toast.LENGTH_SHORT).show();
-        finish();
+        com.example.produce.data.ProduceService produceService = new com.example.produce.data.ProduceService(this);
+        produceService.reportCommunityPrice(report, new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(CommunityReportActivity.this, "回報失敗，請檢查網路連線", Toast.LENGTH_SHORT).show();
+                });
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) {
+                runOnUiThread(() -> {
+                    Toast.makeText(CommunityReportActivity.this, "感謝您的回報！已獲得 +5 貢獻積分", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
+            }
+        });
     }
 }

@@ -65,16 +65,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 }
 
-// 在主程式中套用 AppDelegate
-/*
+// 為何修改：原先 @main 進入點被註解掉，App 無法啟動。
+// 現在取消註解讓 SwiftUI App 正常執行，並整合 FCM AppDelegate。
 @main
 struct ProduceApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    
+
     var body: some Scene {
         WindowGroup {
             MainTabView()
         }
     }
 }
-*/

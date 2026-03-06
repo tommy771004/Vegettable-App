@@ -1,5 +1,9 @@
 import SwiftUI
 
+// 為何修改：原先使用硬編碼的 4 種蔬果且節氣寫死為「立秋」。
+// 現在改為從後端 /seasonal API 動態取得當季農產品，並根據當前月份自動計算節氣，
+// 讓資料隨著季節自動更新，不需要手動維護。
+
 struct SeasonalCrop: Identifiable {
     let id = UUID()
     let name: String
@@ -8,15 +12,42 @@ struct SeasonalCrop: Identifiable {
 }
 
 struct SeasonalCalendarView: View {
-    let currentSeason = "立秋 (約 8/7 - 8/22)"
-    
-    let seasonalCrops: [SeasonalCrop] = [
-        SeasonalCrop(name: "西瓜", emoji: "🍉", tips: "拍打聲音清脆，蒂頭捲曲"),
-        SeasonalCrop(name: "小黃瓜", emoji: "🥒", tips: "瓜體直挺，表面有刺"),
-        SeasonalCrop(name: "茄子", emoji: "🍆", tips: "表皮光滑發亮，蒂頭無枯萎"),
-        SeasonalCrop(name: "空心菜", emoji: "🥬", tips: "葉片翠綠，莖部不發黑")
-    ]
-    
+    @State private var seasonalCrops: [SeasonalCrop] = []
+    @State private var isLoading = true
+
+    // 根據當前月份自動判斷節氣
+    private var currentSeason: String {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 1: return "小寒 ~ 大寒"
+        case 2: return "立春 ~ 雨水"
+        case 3: return "驚蟄 ~ 春分"
+        case 4: return "清明 ~ 穀雨"
+        case 5: return "立夏 ~ 小滿"
+        case 6: return "芒種 ~ 夏至"
+        case 7: return "小暑 ~ 大暑"
+        case 8: return "立秋 ~ 處暑"
+        case 9: return "白露 ~ 秋分"
+        case 10: return "寒露 ~ 霜降"
+        case 11: return "立冬 ~ 小雪"
+        case 12: return "大雪 ~ 冬至"
+        default: return "未知節氣"
+        }
+    }
+
+    // 根據作物名稱自動對應 emoji
+    private func emojiFor(_ name: String) -> String {
+        if name.contains("瓜") { return "🍉" }
+        if name.contains("菜") || name.contains("菠") || name.contains("甘藍") { return "🥬" }
+        if name.contains("蘿蔔") || name.contains("胡蘿蔔") { return "🥕" }
+        if name.contains("茄") { return "🍆" }
+        if name.contains("番茄") { return "🍅" }
+        if name.contains("柑") || name.contains("桔") { return "🍊" }
+        if name.contains("葡萄") { return "🍇" }
+        if name.contains("木瓜") { return "🥭" }
+        return "🌱"
+    }
+
     var body: some View {
         NavigationView {
             VStack(alignment: .leading) {
@@ -33,25 +64,63 @@ struct SeasonalCalendarView: View {
                 .background(Color.green.opacity(0.1))
                 .cornerRadius(12)
                 .padding(.horizontal)
-                
-                List(seasonalCrops) { crop in
-                    HStack(spacing: 16) {
-                        Text(crop.emoji)
-                            .font(.system(size: 40))
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(crop.name)
-                                .font(.headline)
-                            Text("挑選訣竅：\(crop.tips)")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+
+                if isLoading {
+                    ProgressView("載入當季蔬果...")
+                        .padding()
+                } else if seasonalCrops.isEmpty {
+                    Text("目前沒有當季蔬果資料")
+                        .foregroundColor(.secondary)
+                        .padding()
+                } else {
+                    List(seasonalCrops) { crop in
+                        HStack(spacing: 16) {
+                            Text(crop.emoji)
+                                .font(.system(size: 40))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(crop.name)
+                                    .font(.headline)
+                                Text(crop.tips)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
                         }
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .listStyle(PlainListStyle())
                 }
-                .listStyle(PlainListStyle())
             }
             .navigationTitle("當季蔬果曆")
+            .onAppear {
+                loadSeasonalCrops()
+            }
+        }
+    }
+
+    private func loadSeasonalCrops() {
+        ProduceService.shared.getSeasonalCrops { result in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                switch result {
+                case .success(let crops):
+                    self.seasonalCrops = crops.map { dto in
+                        SeasonalCrop(
+                            name: dto.cropName,
+                            emoji: self.emojiFor(dto.cropName),
+                            tips: dto.description
+                        )
+                    }
+                case .failure:
+                    // API 失敗時使用預設資料
+                    self.seasonalCrops = [
+                        SeasonalCrop(name: "高麗菜", emoji: "🥬", tips: "挑選葉片緊密、拿起來有重量感"),
+                        SeasonalCrop(name: "白蘿蔔", emoji: "🥕", tips: "表皮光滑、輕敲有清脆聲"),
+                        SeasonalCrop(name: "番茄", emoji: "🍅", tips: "顏色鮮紅均勻、蒂頭翠綠"),
+                        SeasonalCrop(name: "菠菜", emoji: "🥬", tips: "葉片翠綠、莖部不發黑")
+                    ]
+                }
+            }
         }
     }
 }

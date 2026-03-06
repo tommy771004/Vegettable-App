@@ -107,19 +107,33 @@ struct ElderlyModeView: View {
         isRecording = false
     }
     
+    // 為何修改：原先只硬編碼兩種蔬菜 (高麗菜、番茄)，其餘一律回「聽不懂」。
+    // 現在改為將語音辨識結果當作關鍵字，呼叫後端 API 搜尋真實菜價，
+    // 讓長輩可以查詢任意農產品，不再受限於預設清單。
     private func processVoiceQuery(query: String) {
-        if query.contains("高麗菜") {
-            let response = "阿嬤，今天台北一市場的高麗菜，批發價是一斤 25 元。"
-            resultText = response
-            ttsHelper.speak(text: response)
-        } else if query.contains("番茄") {
-            let response = "阿嬤，今天牛番茄比較貴，一斤要 45 元喔。"
-            resultText = response
-            ttsHelper.speak(text: response)
-        } else {
-            let response = "阿嬤，我聽不懂您說的菜名，請再說一次。"
-            resultText = response
-            ttsHelper.speak(text: response)
+        let loadingText = "阿嬤，正在幫您查「\(query)」的價格..."
+        resultText = loadingText
+        ttsHelper.speak(text: loadingText)
+
+        ProduceService.shared.fetchProduceData(keyword: query, page: 1, pageSize: 1) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let response):
+                    if let first = response.data.first {
+                        let reply = "阿嬤，今天\(first.marketName)的\(first.cropName)，批發價是一斤 \(Int(first.avgPrice)) 元。"
+                        self.resultText = reply
+                        self.ttsHelper.speak(text: reply)
+                    } else {
+                        let reply = "阿嬤，今天找不到「\(query)」的價格，請換個菜名再試試。"
+                        self.resultText = reply
+                        self.ttsHelper.speak(text: reply)
+                    }
+                case .failure:
+                    let reply = "阿嬤，網路好像有問題，等一下再查看看。"
+                    self.resultText = reply
+                    self.ttsHelper.speak(text: reply)
+                }
+            }
         }
     }
 }
