@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -29,6 +30,7 @@ import com.example.produceapp.util.TextToSpeechHelper
 enum class BottomTab(val title: String, val icon: ImageVector) {
     HOME("首頁", Icons.Default.Home),
     FAVORITES("收藏", Icons.Default.Favorite),
+    COMMUNITY("回報", Icons.Default.Campaign),
     SETTINGS("設定", Icons.Default.Settings),
     GROCERY_LIST("清單", Icons.Default.ShoppingCart)
 }
@@ -73,6 +75,7 @@ fun MainScreen(
                     highlightedProduceId = deepLinkProduceId
                 )
                 BottomTab.FAVORITES -> FavoritesScreen(viewModel)
+                BottomTab.COMMUNITY -> CommunityReportScreen(viewModel)
                 BottomTab.SETTINGS -> SettingsScreen()
                 BottomTab.GROCERY_LIST -> SmartGroceryListScreen()
             }

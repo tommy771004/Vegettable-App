@@ -256,9 +256,9 @@ fun HomeScreen(
                     SeasonalCropCalendar()
                 }
 
-                // 9. 📍 尋找最近的果菜市場
+                // 9. 📍 尋找最近的果菜市場 + 各市場比價
                 item {
-                    MarketFinderCard()
+                    MarketFinderCard(viewModel = viewModel)
                 }
 
                 // 10. 🛒 智慧買菜清單入口

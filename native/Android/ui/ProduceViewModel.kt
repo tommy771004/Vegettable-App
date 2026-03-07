@@ -179,11 +179,62 @@ class ProduceViewModel @Inject constructor(
     suspend fun searchCropPrice(name: String): Double? {
         return try {
             val response = produceService.getDailyPrices(name, 1, 1)
-            // 取第一筆結果的均價（若有多個市場，取第一個市場的均價）
             response.data.firstOrNull()?.avgPrice
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * 社群零售價回報：回傳 true 表示成功，false 表示失敗
+     * 成功後後端累積 5 點貢獻點數
+     */
+    suspend fun submitCommunityPrice(
+        marketName: String,
+        cropName: String,
+        retailPrice: Double
+    ): Boolean {
+        return try {
+            produceService.submitCommunityPrice(
+                CommunityPriceDto(
+                    cropCode = cropName,   // 後端支援名稱模糊比對
+                    cropName = cropName,
+                    marketName = marketName,
+                    retailPrice = retailPrice
+                )
+            )
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * 取得使用者貢獻統計（點數、等級、回報次數）
+     * @return UserStatsDto 或 null（若載入失敗）
+     */
+    suspend fun getUserStats(): UserStatsDto? {
+        return try {
+            produceService.getUserStats()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * 各市場同一農產品比價查詢
+     * @param cropName 農產品名稱（例："高麗菜"）
+     * @return 比價清單（依均價由低到高排序），失敗回傳空清單
+     */
+    suspend fun getMarketComparison(cropName: String): List<MarketCompareDto> {
+        return try {
+            produceService.getMarketComparison(cropName).sortedBy { it.avgPrice }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 }

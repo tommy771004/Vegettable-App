@@ -466,4 +466,32 @@ class ProduceService: ProduceServiceProtocol {
             getUserStats { continuation.resume(with: $0) }
         }
     }
+
+    // MARK: - 市場比價
+
+    /// 查詢指定農產品在各市場的批發均價
+    /// 對應後端 GET /api/produce/compare/{cropName}
+    /// - Parameter cropName: 農產品名稱（例："高麗菜"），後端進行模糊比對
+    func getMarketComparison(cropName: String, completion: @escaping (Result<[MarketComparisonDto], Error>) -> Void) {
+        let encoded = cropName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cropName
+        guard let request = makeAuthenticatedRequest(urlString: "\(baseURL)/compare/\(encoded)") else { return }
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let result = try JSONDecoder().decode([MarketComparisonDto].self, from: data)
+                completion(.success(result.sorted { $0.avgPrice < $1.avgPrice }))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    /// async/await 版本：取得市場比價清單（已由低到高排序）
+    func getMarketComparison(cropName: String) async throws -> [MarketComparisonDto] {
+        try await withCheckedThrowingContinuation { continuation in
+            getMarketComparison(cropName: cropName) { continuation.resume(with: $0) }
+        }
+    }
 }

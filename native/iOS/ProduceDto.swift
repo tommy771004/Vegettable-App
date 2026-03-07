@@ -123,3 +123,13 @@ struct UserStatsDto: Codable {
     let level: String            // 使用者等級："新手菜鳥" / "精打細算" / "市場達人"
     let reportCount: Int         // 累計回報次數
 }
+
+// MARK: - 市場比價
+/// 各市場同一農產品批發均價 DTO，對應後端 /compare/{cropName} API
+/// 由低到高排序後可讓使用者選擇最便宜的市場前往採購
+struct MarketComparisonDto: Codable {
+    let marketName: String      // 市場名稱 (例："台北第一果菜")
+    let avgPrice: Double        // 當日批發均價 (元/公斤)
+    let transQuantity: Double   // 當日交易量 (公斤)
+    let date: String            // 交易日期 (yyyy-MM-dd)
+}

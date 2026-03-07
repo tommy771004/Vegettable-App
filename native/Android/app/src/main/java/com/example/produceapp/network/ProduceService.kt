@@ -122,4 +122,28 @@ interface ProduceService {
      */
     @GET("budget-recipes")
     suspend fun getBudgetRecipes(): List<BudgetRecipeDto>
+
+    /**
+     * 社群零售價回報（使用者親眼看到的超市/市場零售價）
+     * 對應後端：POST /api/produce/community-price
+     * 每次成功回報累積 5 點貢獻點數
+     */
+    @POST("community-price")
+    suspend fun submitCommunityPrice(@Body body: CommunityPriceDto): Any
+
+    /**
+     * 查詢使用者貢獻統計（點數、等級、回報次數）
+     * 對應後端：GET /api/produce/user-stats
+     */
+    @GET("user-stats")
+    suspend fun getUserStats(): UserStatsDto
+
+    /**
+     * 各市場同一農產品的批發價比較
+     * 對應後端：GET /api/produce/compare/{cropName}
+     *
+     * @param cropName 農產品名稱（例："高麗菜"），後端進行模糊比對
+     */
+    @GET("compare/{cropName}")
+    suspend fun getMarketComparison(@Path("cropName") cropName: String): List<MarketCompareDto>
 }
