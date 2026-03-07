@@ -440,4 +440,30 @@ class ProduceService: ProduceServiceProtocol {
             getFavorites { continuation.resume(with: $0) }
         }
     }
+
+    // MARK: - 使用者統計
+
+    /// 取得使用者貢獻點數、等級與回報次數
+    /// 對應後端 GET /api/produce/user-stats
+    func getUserStats(completion: @escaping (Result<UserStatsDto, Error>) -> Void) {
+        guard let request = makeAuthenticatedRequest(urlString: "\(baseURL)/user-stats") else { return }
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { return }
+            do {
+                let result = try JSONDecoder().decode(UserStatsDto.self, from: data)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    /// async/await 版本：取得使用者統計
+    func getUserStats() async throws -> UserStatsDto {
+        try await withCheckedThrowingContinuation { continuation in
+            getUserStats { continuation.resume(with: $0) }
+        }
+    }
 }

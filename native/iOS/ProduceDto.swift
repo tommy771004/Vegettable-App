@@ -114,3 +114,12 @@ struct BudgetRecipeDto: Codable {
     let imageUrl: String            // 食譜縮圖 URL 或 emoji 代替
     let steps: [String]             // 烹飪步驟陣列
 }
+
+// MARK: - 使用者貢獻統計
+/// 使用者貢獻點數與等級 DTO，對應後端 /user-stats API
+/// 每次回報社群物價可獲得 5 點；點數累積達門檻即升級
+struct UserStatsDto: Codable {
+    let contributionPoints: Int  // 累積貢獻點數 (每次回報 +5)
+    let level: String            // 使用者等級："新手菜鳥" / "精打細算" / "市場達人"
+    let reportCount: Int         // 累計回報次數
+}
