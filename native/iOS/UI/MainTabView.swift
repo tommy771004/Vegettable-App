@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum BottomTab {
-    case home, favorites, explore, settings
+    case home, favorites, grocery, explore, settings
 }
 
 struct MainTabView: View {
@@ -27,10 +27,13 @@ struct MainTabView: View {
                 case .favorites:
                     FavoritesScreen()
                         .environmentObject(sharedViewModel)
+                case .grocery:
+                    SmartGroceryListScreen()
                 case .explore:
                     ExploreMenuView()
                 case .settings:
                     SettingsScreen()
+                        .environmentObject(sharedViewModel)
                 }
             }
             .padding(.bottom, 80)
@@ -42,6 +45,10 @@ struct MainTabView: View {
                 Spacer()
                 TabBarItem(icon: "heart.fill", title: "收藏", isSelected: currentTab == .favorites) {
                     currentTab = .favorites
+                }
+                Spacer()
+                TabBarItem(icon: "cart.fill", title: "買菜", isSelected: currentTab == .grocery) {
+                    currentTab = .grocery
                 }
                 Spacer()
                 TabBarItem(icon: "square.grid.2x2.fill", title: "探索", isSelected: currentTab == .explore) {
