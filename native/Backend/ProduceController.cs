@@ -143,12 +143,18 @@ namespace ProduceApi.Controllers
         [HttpGet("history/{produceId}")]
         public async Task<IActionResult> GetPriceHistory(string produceId)
         {
-            // [Bug Fix] 原本回傳原始 PriceHistory 實體，欄位名稱為 AveragePrice / RecordDate，
+            // [Bug Fix 1] 原本回傳原始 PriceHistory 實體，欄位名稱為 AveragePrice / RecordDate，
             // 與 iOS HistoricalPriceDto { date: String, avgPrice: Double } 和
             // Android HistoricalPriceDto { date: String, avgPrice: Double } 不符，導致解析失敗。
             // 修正：投影為符合客戶端 DTO 格式的匿名物件，並格式化日期字串。
+            //
+            // [Bug Fix 2] ProduceDto.Id 現在是複合鍵 "{CropCode}-{MarketCode}-{Date}"
+            // 但 PriceHistory.ProduceId 只存 CropCode (由 ProduceSyncWorker 寫入)。
+            // 修正：若 produceId 含有 '-'，取第一個 '-' 前的部分作為 CropCode 查詢。
+            var cropCode = produceId.Contains('-') ? produceId[..produceId.IndexOf('-')] : produceId;
+
             var history = await _dbContext.PriceHistories
-                .Where(p => p.ProduceId == produceId)
+                .Where(p => p.ProduceId == cropCode)
                 .OrderByDescending(p => p.RecordDate)
                 .Take(30)
                 .Select(p => new { date = p.RecordDate.ToString("yyyy-MM-dd"), avgPrice = p.AveragePrice })
@@ -180,9 +186,20 @@ namespace ProduceApi.Controllers
                     Date = m.Date
                 }).ToList();
 
+                // [Bug Fix] 原本回傳完整 ProduceDto（含 cropCode、cropName 等多餘欄位）。
+                // iOS MarketComparisonDto / Android MarketCompareDto 只需要
+                // { marketName, avgPrice, transQuantity, date }。
+                // 修正：投影為 MarketCompareDto，與客戶端 DTO 精確對應。
                 var comparisonData = allItems
                     .Where(x => x.CropName.Equals(cropName, System.StringComparison.OrdinalIgnoreCase))
                     .OrderBy(x => x.AvgPrice)
+                    .Select(x => new MarketCompareDto
+                    {
+                        MarketName = x.MarketName,
+                        AvgPrice = x.AvgPrice,
+                        TransQuantity = x.TransQuantity,
+                        Date = x.Date
+                    })
                     .ToList();
 
                 return Ok(comparisonData);
@@ -199,8 +216,11 @@ namespace ProduceApi.Controllers
         [HttpGet("forecast/{produceId}")]
         public async Task<IActionResult> GetPriceForecast(string produceId)
         {
+            // [Bug Fix] 同 GetPriceHistory：ProduceDto.Id 是複合鍵，PriceHistory.ProduceId 只存 CropCode。
+            var cropCode = produceId.Contains('-') ? produceId[..produceId.IndexOf('-')] : produceId;
+
             var history = await _dbContext.PriceHistories
-                .Where(p => p.ProduceId == produceId)
+                .Where(p => p.ProduceId == cropCode)
                 .OrderByDescending(p => p.RecordDate)
                 .Take(14)
                 .ToListAsync();
