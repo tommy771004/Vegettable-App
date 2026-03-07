@@ -107,5 +107,15 @@ namespace ProduceApi.Services
             string cacheKey = string.IsNullOrEmpty(marketCode) ? "ALL" : marketCode;
             await _cache.RemoveAsync(cacheKey);
         }
+
+        // [Improvement] 通用快取讀寫方法，供 Controller 快取任意 JSON 字串（如天氣警報）
+        public async Task<string?> GetCachedStringAsync(string key)
+            => await _cache.GetStringAsync(key);
+
+        public async Task SetCachedStringAsync(string key, string value, TimeSpan ttl)
+            => await _cache.SetStringAsync(key, value, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            });
     }
 }
