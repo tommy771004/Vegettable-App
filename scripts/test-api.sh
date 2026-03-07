@@ -299,7 +299,7 @@ header "📣 Step 12: 社群物價回報"
 if [[ -n "$JWT" ]]; then
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     result=$(api_post "$API/community-price" \
-        "{\"produceId\":\"LA1\",\"cropName\":\"高麗菜\",\"marketName\":\"台北一市\",\"retailPrice\":28.5,\"priceType\":\"零售\",\"reportedAt\":\"$NOW\"}" \
+        "{\"cropCode\":\"LA1\",\"cropName\":\"高麗菜\",\"marketName\":\"台北一市\",\"retailPrice\":28.5,\"reportDate\":\"$NOW\"}" \
         "$JWT")
     code=$(echo "$result" | cut -d' ' -f1)
     if [[ "$code" == "200" || "$code" == "201" ]]; then

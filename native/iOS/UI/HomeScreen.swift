@@ -90,7 +90,7 @@ struct HomeScreen: View {
                            case .success(let predicted) = viewModel.predictedData,
                            (!history.isEmpty || !predicted.isEmpty) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("📈 高麗菜 價格趨勢與預測")
+                                Text("📈 \(history.first?.date != nil ? "近期" : "高麗菜") 價格趨勢與預測")
                                     .font(.headline)
                                     .foregroundColor(Color(hex: "2E7D32"))
                                     .padding(.horizontal)
@@ -155,19 +155,23 @@ struct HomeScreen: View {
                             }
                         }
                         
-                        // 4. 今日菜價列表
+                        // 4. 今日菜價列表（35-60 歲友善大卡片，點擊進入詳情）
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("📋 今日菜價")
-                                .font(.headline)
-                                .foregroundColor(Color(hex: "2E7D32"))
-                                .padding(.horizontal)
-                            
+                            HStack {
+                                Text("📋 今日菜價")
+                                    .font(.title3.bold())
+                                    .foregroundColor(Color(hex: "2E7D32"))
+                                Spacer()
+                                Text("點擊查看詳情 →")
+                                    .font(.caption)
+                                    .foregroundColor(Color(hex: "81C784"))
+                            }
+                            .padding(.horizontal)
+
                             switch viewModel.dailyPrices {
                             case .loading:
                                 ForEach(0..<5) { _ in
-                                    SkeletonView()
-                                        .frame(height: 80)
-                                        .padding(.horizontal)
+                                    SkeletonView().frame(height: 90).padding(.horizontal)
                                 }
                             case .failure(let error):
                                 ErrorView(message: error.localizedDescription) {
@@ -177,46 +181,25 @@ struct HomeScreen: View {
                                 if dailyPrices.isEmpty {
                                     EmptyStateView(message: "今日暫無菜價資料", systemImage: "cart")
                                 } else {
-                                    LazyVStack(spacing: 16) {
+                                    LazyVStack(spacing: 14) {
                                         ForEach(dailyPrices) { produce in
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    Text(produce.cropName)
-                                                        .font(.headline)
-                                                        .foregroundColor(Color(hex: "1B5E20"))
-                                                    Text(produce.marketName)
-                                                        .font(.caption)
-                                                        .foregroundColor(Color(hex: "4CAF50"))
-                                                }
-                                                Spacer()
-                                                
-                                                Text("$\(String(format: "%.1f", produce.avgPrice))")
-                                                    .font(.title3)
-                                                    .fontWeight(.bold)
-                                                    .foregroundColor(Color(hex: "2E7D32"))
-                                                    .contentTransition(.numericText())
-                                                    .animation(.easeInOut(duration: 0.4), value: produce.avgPrice)
-                                                
-                                                HStack(spacing: 4) {
-                                                    Button(action: {
-                                                        ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
-                                                    }) {
-                                                        Image(systemName: "speaker.wave.2.fill")
-                                                            .foregroundColor(Color(hex: "388E3C"))
-                                                            .padding(.leading, 8)
-                                                    }
-                                                    Button(action: {
+                                            // NavigationLink → CropDetailScreen
+                                            NavigationLink(destination:
+                                                CropDetailScreen(produce: produce)
+                                                    .environmentObject(viewModel)
+                                            ) {
+                                                ProduceRowCard(
+                                                    produce: produce,
+                                                    onSpeak: {
+                                                        ttsHelper.speak(text: "今日 \(produce.cropName) 價格是每公斤 \(String(format: "%.0f", produce.avgPrice)) 元")
+                                                    },
+                                                    onFavorite: {
                                                         favoriteTarget = produce
                                                         targetPriceInput = String(format: "%.1f", produce.avgPrice)
-                                                    }) {
-                                                        Image(systemName: "heart")
-                                                            .foregroundColor(Color(hex: "E91E63"))
-                                                            .padding(.leading, 4)
                                                     }
-                                                }
+                                                )
                                             }
-                                            .padding()
-                                            .liquidGlass()
+                                            .buttonStyle(.plain)
                                             .padding(.horizontal)
                                         }
                                     }
@@ -375,6 +358,87 @@ private struct HeroBanner: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 110)
+    }
+}
+
+// MARK: - 今日菜價大卡片（35-60 歲友善設計）
+/// 針對中高齡使用者設計的菜價列表項目：
+///   - 農產品名稱 20pt bold，市場名稱 15pt
+///   - 價格欄位 26pt heavy，視覺重心清晰
+///   - 整張卡片可點（NavigationLink），最小高度 80pt
+///   - 喇叭與收藏按鈕維持獨立，不觸發導覽
+struct ProduceRowCard: View {
+    let produce: ProduceDto
+    let onSpeak: () -> Void
+    let onFavorite: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 左側：作物資訊
+            VStack(alignment: .leading, spacing: 5) {
+                Text(produce.cropName)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Color(hex: "1B5E20"))
+                Text(produce.marketName)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "4CAF50"))
+                Text(produce.date)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // 右側：價格 + 操作按鈕
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("$\(String(format: "%.1f", produce.avgPrice))")
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .foregroundColor(Color(hex: "2E7D32"))
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.4), value: produce.avgPrice)
+
+                Text("元/公斤")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 10) {
+                    // 語音朗讀
+                    Button(action: onSpeak) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color(hex: "388E3C"))
+                            .frame(width: 36, height: 36)
+                            .background(Color(hex: "E8F5E9"))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    // 加入收藏
+                    Button(action: onFavorite) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color(hex: "E91E63"))
+                            .frame(width: 36, height: 36)
+                            .background(Color(hex: "FCE4EC"))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(minHeight: 80)
+        .liquidGlass()
+        .overlay(alignment: .trailing) {
+            // 右箭頭提示可點擊
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(Color(hex: "81C784"))
+                .padding(.trailing, 8)
+                .padding(.top, 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }
     }
 }
 
