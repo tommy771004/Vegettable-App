@@ -237,4 +237,22 @@ class ProduceViewModel @Inject constructor(
             emptyList()
         }
     }
+
+    /**
+     * 新增或更新農產品到收藏清單，並設定目標到價提醒
+     * @param produceId 農產品代碼（例："LA1"）
+     * @param targetPrice 使用者設定的目標提醒價格（跌破此價格時發送 FCM 推播）
+     * @return true 表示成功，false 表示失敗
+     */
+    suspend fun addToFavorites(produceId: String, targetPrice: Double): Boolean {
+        return try {
+            produceService.addFavorite(AddFavoriteDto(produceId = produceId, targetPrice = targetPrice))
+            // 重新載入收藏清單，讓 FavoritesScreen 即時反映新增結果
+            _favorites.value = Resource.Success(produceService.getFavorites())
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

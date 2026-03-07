@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.VolumeUp
@@ -19,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,10 +29,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.produceapp.util.TextToSpeechHelper
 import com.example.produceapp.util.Resource
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 // 毛玻璃效果 Modifier (淡綠色底 + 半透明 + 細邊框)
 fun Modifier.liquidGlass() = this
@@ -55,6 +63,12 @@ fun HomeScreen(
     // 搜尋關鍵字狀態：同時支援語音輸入與文字輸入
     var searchKeyword by remember { mutableStateOf("") }
 
+    // 收藏對話框狀態
+    var favoriteTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // produceId to cropName
+    var targetPriceInput by remember { mutableStateOf("") }
+    var favoriteSuccessMsg by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
     val bgBrush = Brush.linearGradient(
         colors = listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9))
     )
@@ -66,14 +80,111 @@ fun HomeScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
-        containerColor = Color.Transparent
+        containerColor = Color.Transparent,
+        snackbarHost = {
+            // 收藏成功 Snackbar
+            favoriteSuccessMsg?.let { msg ->
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { favoriteSuccessMsg = null }) { Text("關閉") }
+                    },
+                    containerColor = Color(0xFF2E7D32),
+                    contentColor = Color.White
+                ) { Text(msg) }
+            }
+        }
     ) { padding ->
+
+        // 加入收藏對話框
+        favoriteTarget?.let { (produceId, cropName) ->
+            AlertDialog(
+                onDismissRequest = { favoriteTarget = null },
+                title = { Text("❤️ 加入收藏：$cropName") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("設定到價提醒：當價格低於此目標價時，系統將發送通知。", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        OutlinedTextField(
+                            value = targetPriceInput,
+                            onValueChange = { targetPriceInput = it },
+                            label = { Text("目標提醒價格 (元/公斤)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val price = targetPriceInput.toDoubleOrNull()
+                            if (price != null) {
+                                scope.launch {
+                                    val ok = viewModel.addToFavorites(produceId, price)
+                                    favoriteSuccessMsg = if (ok) "✅ $cropName 已加入收藏，目標價 $$price/kg" else "⚠️ 加入收藏失敗，請稍後再試"
+                                }
+                                favoriteTarget = null
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    ) { Text("確認", color = Color.White) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { favoriteTarget = null }) { Text("取消") }
+                }
+            )
+        }
+
         Box(modifier = Modifier.fillMaxSize().background(bgBrush)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+
+                // 0. 🌟 Hero 摘要橫幅
+                item {
+                    val today = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日"))
+                    } else ""
+                    val totalCount = (dailyPricesState as? Resource.Success)?.data?.size ?: 0
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF388E3C))
+                                )
+                            )
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("🌿 今日農產批發", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+                                Text(today, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                                if (totalCount > 0) {
+                                    Text("共 $totalCount 筆今日行情", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.2f)) {
+                                    Text("🇹🇼 臺灣農業", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                                }
+                                Surface(shape = RoundedCornerShape(50), color = Color(0xFF4CAF50).copy(alpha = 0.4f)) {
+                                    Text("即時更新", color = Color.White, fontSize = 10.sp,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // 1. 🔴 價格異常警報（優先顯示，最緊急）
                 item {
@@ -205,15 +316,22 @@ fun HomeScreen(
                                     .then(if (isHighlighted) Modifier.border(2.dp, Color(0xFFFF6F00), RoundedCornerShape(16.dp)) else Modifier)
                                     .liquidGlass().padding(16.dp)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Column {
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(produce.cropName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
                                             Text(produce.marketName, style = MaterialTheme.typography.bodySmall, color = Color(0xFF4CAF50))
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text("$${String.format("%.1f", produce.avgPrice)}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                            // 語音播報按鈕
                                             IconButton(onClick = { ttsHelper.speak("今日 ${produce.cropName} 價格是 ${produce.avgPrice} 元") }) {
                                                 Icon(Icons.Default.VolumeUp, contentDescription = "語音播報", tint = Color(0xFF388E3C))
+                                            }
+                                            // ❤️ 加入收藏按鈕
+                                            IconButton(onClick = {
+                                                favoriteTarget = Pair(produce.cropCode, produce.cropName)
+                                                targetPriceInput = String.format("%.1f", produce.avgPrice)
+                                            }) {
+                                                Icon(Icons.Default.FavoriteBorder, contentDescription = "加入收藏", tint = Color(0xFFE91E63))
                                             }
                                         }
                                     }

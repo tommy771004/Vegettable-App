@@ -146,4 +146,12 @@ interface ProduceService {
      */
     @GET("compare/{cropName}")
     suspend fun getMarketComparison(@Path("cropName") cropName: String): List<MarketCompareDto>
+
+    /**
+     * 新增或更新收藏農產品及目標到價提醒
+     * 對應後端：POST /api/produce/favorites
+     * JWT 識別使用者身份，targetPrice 為觸發 FCM 推播的門檻價
+     */
+    @POST("favorites")
+    suspend fun addFavorite(@Body body: AddFavoriteDto): Any
 }

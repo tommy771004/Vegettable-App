@@ -79,6 +79,9 @@ struct ExploreMenuView: View {
                     NavigationLink(destination: PriceAlertSetupView()) {
                         Label("目標提醒設定", systemImage: "bell.badge.fill")
                     }
+                    NavigationLink(destination: MarketComparisonView()) {
+                        Label("市場比價查詢", systemImage: "storefront.fill")
+                    }
                 } header: {
                     Text("進階功能")
                 }
