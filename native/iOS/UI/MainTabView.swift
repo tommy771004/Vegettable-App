@@ -1,36 +1,35 @@
 import SwiftUI
 
 enum BottomTab {
-    case home, favorites, settings
+    case home, favorites, explore, settings
 }
 
 struct MainTabView: View {
     @State private var currentTab: BottomTab = .home
-    
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 全站漸層底色 (iOS 26 Liquid Glass 風格)
             LinearGradient(
                 colors: [Color(hex: "E8F5E9"), Color(hex: "C8E6C9")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
-            // 主要內容區域
+
             Group {
                 switch currentTab {
                 case .home:
                     HomeScreen()
                 case .favorites:
                     FavoritesScreen()
+                case .explore:
+                    ExploreMenuView()
                 case .settings:
                     SettingsScreen()
                 }
             }
-            .padding(.bottom, 80) // 預留空間給懸浮導覽列
-            
-            // 懸浮式底部導覽列 (Floating Liquid Glass Bottom Navigation)
+            .padding(.bottom, 80)
+
             HStack {
                 TabBarItem(icon: "house.fill", title: "首頁", isSelected: currentTab == .home) {
                     currentTab = .home
@@ -40,15 +39,47 @@ struct MainTabView: View {
                     currentTab = .favorites
                 }
                 Spacer()
+                TabBarItem(icon: "square.grid.2x2.fill", title: "探索", isSelected: currentTab == .explore) {
+                    currentTab = .explore
+                }
+                Spacer()
                 TabBarItem(icon: "gearshape.fill", title: "設定", isSelected: currentTab == .settings) {
                     currentTab = .settings
                 }
             }
             .padding(.vertical, 12)
-            .padding(.horizontal, 32)
+            .padding(.horizontal, 24)
             .liquidGlass()
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
+        }
+    }
+}
+
+// 探索功能選單：原本無導覽入口的孤立畫面統一由此進入
+struct ExploreMenuView: View {
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    NavigationLink(destination: ElderlyModeView()) {
+                        Label("長輩友善模式", systemImage: "person.2.fill")
+                    }
+                    NavigationLink(destination: SeasonalCalendarView()) {
+                        Label("當季蔬果日曆", systemImage: "calendar")
+                    }
+                    NavigationLink(destination: CommunityReportView()) {
+                        Label("社群物價回報", systemImage: "megaphone.fill")
+                    }
+                    NavigationLink(destination: PriceAlertSetupView()) {
+                        Label("目標提醒設定", systemImage: "bell.badge.fill")
+                    }
+                } header: {
+                    Text("進階功能")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("探索")
         }
     }
 }
@@ -58,12 +89,12 @@ struct TabBarItem: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.system(size: 22))
                 Text(title)
                     .font(.caption)
                     .fontWeight(isSelected ? .bold : .regular)
