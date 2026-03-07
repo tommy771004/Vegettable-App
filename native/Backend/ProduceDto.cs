@@ -37,6 +37,11 @@ namespace ProduceApi.Models
         public double AvgPrice { get; set; }
         public double TransQuantity { get; set; }
         public string Date { get; set; }
+
+        // [Bug Fix] 新增 id 欄位：對應 iOS ProduceDto.id 與 Android ProduceDto.stableId
+        // 確保 test-api.sh 可以從 daily-prices 回應中解析出 produceId，
+        // 進而測試 history/{id} 與 forecast/{id} 端點。
+        public string Id => $"{CropCode}-{MarketCode}-{Date}";
     }
 
     public class PaginatedResponse<T>
@@ -74,6 +79,18 @@ namespace ProduceApi.Models
         public string CropName { get; set; }
         public string Season { get; set; }
         public string Description { get; set; }
+    }
+
+    // 使用者貢獻統計 DTO (GET /api/produce/user-stats)
+    // [Bug Fix] 原本 GetUserStats 直接回傳 UserStat 實體，
+    //   1. 暴露敏感欄位 FcmToken、UserId
+    //   2. 缺少 reportCount 欄位，iOS/Android UserStatsDto 需要此欄位
+    // 修正：新增此 DTO，回傳時僅包含客戶端所需欄位。
+    public class UserStatsDto
+    {
+        public int ContributionPoints { get; set; }
+        public string Level { get; set; }
+        public int ReportCount { get; set; }
     }
 
     // 新增功能：價格異常警告 (Price Anomaly Detection)

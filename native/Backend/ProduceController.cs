@@ -143,10 +143,15 @@ namespace ProduceApi.Controllers
         [HttpGet("history/{produceId}")]
         public async Task<IActionResult> GetPriceHistory(string produceId)
         {
+            // [Bug Fix] 原本回傳原始 PriceHistory 實體，欄位名稱為 AveragePrice / RecordDate，
+            // 與 iOS HistoricalPriceDto { date: String, avgPrice: Double } 和
+            // Android HistoricalPriceDto { date: String, avgPrice: Double } 不符，導致解析失敗。
+            // 修正：投影為符合客戶端 DTO 格式的匿名物件，並格式化日期字串。
             var history = await _dbContext.PriceHistories
                 .Where(p => p.ProduceId == produceId)
                 .OrderByDescending(p => p.RecordDate)
                 .Take(30)
+                .Select(p => new { date = p.RecordDate.ToString("yyyy-MM-dd"), avgPrice = p.AveragePrice })
                 .ToListAsync();
 
             return Ok(history);
@@ -202,7 +207,11 @@ namespace ProduceApi.Controllers
 
             if (history.Count < 7)
             {
-                return Ok(new { Forecast = "Insufficient Data", Trend = "Unknown" });
+                // [Bug Fix] 原本回傳 { Forecast, Trend }，與客戶端 PricePredictionResponse
+                // { recentAverage, previousAverage, trend, message } 格式不符，導致解析失敗。
+                // 修正：使用資料不足時的合理預設值，保持回應格式一致。
+                var singleAvg = history.Count > 0 ? history.Average(p => p.AveragePrice) : 0;
+                return Ok(new { recentAverage = singleAvg, previousAverage = singleAvg, trend = "Stable", message = "歷史資料不足，無法預測趨勢。" });
             }
 
             var recent7DaysAvg = history.Take(7).Average(p => p.AveragePrice);
@@ -354,6 +363,43 @@ namespace ProduceApi.Controllers
         }
 
         /// <summary>
+        /// 修改收藏的目標到價提醒
+        /// PUT /api/produce/favorites/{produceId}
+        /// Body: { "targetPrice": 25.0 }
+        /// [Bug Fix] iOS updateFavoriteTargetPrice 與 Android UpdateFavoriteDto 均呼叫此端點，
+        ///           但原本後端只有 POST (upsert) 沒有 PUT，導致 405 Method Not Allowed。
+        /// </summary>
+        [Authorize]
+        [HttpPut("favorites/{produceId}")]
+        public async Task<IActionResult> UpdateFavorite(string produceId, [FromBody] UpdateFavoriteRequest request)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
+            }
+
+            if (request.TargetPrice <= 0)
+            {
+                return BadRequest(new { Message = "TargetPrice must be greater than 0." });
+            }
+
+            var favorite = await _dbContext.UserFavorites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.ProduceId == produceId);
+
+            if (favorite == null)
+            {
+                return NotFound(new { Message = $"Favorite '{produceId}' not found." });
+            }
+
+            favorite.TargetPrice = request.TargetPrice;
+            _dbContext.UserFavorites.Update(favorite);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { Message = "Target price updated successfully" });
+        }
+
+        /// <summary>
         /// 移除收藏
         /// DELETE /api/produce/favorites/{produceId}
         /// </summary>
@@ -471,12 +517,19 @@ namespace ProduceApi.Controllers
             }
 
             var stats = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
-            if (stats == null) 
-            {
-                return Ok(new { ContributionPoints = 0, Level = "新手菜鳥" });
-            }
 
-            return Ok(stats);
+            // [Bug Fix] 原本：
+            //   1. stats == null 時回傳 { ContributionPoints, Level }（缺少 reportCount）
+            //   2. stats != null 時回傳原始實體（暴露 FcmToken、UserId 敏感欄位，且無 reportCount）
+            // 修正：一律回傳 UserStatsDto，reportCount 從 CommunityPrices 動態計算。
+            var reportCount = await _dbContext.CommunityPrices.CountAsync(p => p.UserId == userId);
+
+            return Ok(new UserStatsDto
+            {
+                ContributionPoints = stats?.ContributionPoints ?? 0,
+                Level = stats?.Level ?? "新手菜鳥",
+                ReportCount = reportCount
+            });
         }
 
         // 新增功能：當季盛產日曆 (Seasonal Crop Calendar)
@@ -726,6 +779,12 @@ namespace ProduceApi.Controllers
     {
         // 邏輯修正：移除 UserId，因為已經改由 Header 傳遞
         public string ProduceId { get; set; }
+        public double TargetPrice { get; set; }
+    }
+
+    // PUT /api/produce/favorites/{produceId} 請求 Body
+    public class UpdateFavoriteRequest
+    {
         public double TargetPrice { get; set; }
     }
 }
