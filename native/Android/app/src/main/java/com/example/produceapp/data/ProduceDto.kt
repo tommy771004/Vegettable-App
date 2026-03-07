@@ -74,3 +74,27 @@ data class PricePredictionResponse(
     val trend: String,
     val message: String
 )
+
+// 社群零售價回報 DTO (POST /api/produce/community-price)
+data class CommunityPriceDto(
+    @SerializedName("cropCode") val cropCode: String,
+    @SerializedName("cropName") val cropName: String,
+    @SerializedName("marketName") val marketName: String,
+    @SerializedName("retailPrice") val retailPrice: Double,
+    @SerializedName("reportDate") val reportDate: String? = null
+)
+
+// 使用者貢獻統計 DTO (GET /api/produce/user-stats)
+data class UserStatsDto(
+    @SerializedName("contributionPoints") val contributionPoints: Int,
+    @SerializedName("level") val level: String,
+    @SerializedName("reportCount") val reportCount: Int
+)
+
+// 市場比價 DTO (GET /api/produce/compare/{name})
+data class MarketCompareDto(
+    @SerializedName("marketName") val marketName: String,
+    @SerializedName("avgPrice") val avgPrice: Double,
+    @SerializedName("transQuantity") val transQuantity: Double,
+    @SerializedName("date") val date: String
+)
