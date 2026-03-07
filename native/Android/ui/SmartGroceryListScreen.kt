@@ -20,9 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class GroceryItem(
-    val id: Int,
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     var quantity: Int,
     val estimatedPricePerUnit: Double,
@@ -38,10 +39,20 @@ fun SmartGroceryListScreen(
     var items by remember { mutableStateOf(emptyList<GroceryItem>()) }
     
     var newItemName by remember { mutableStateOf("") }
+    var priceNotFoundMessage by remember { mutableStateOf<String?>(null) }
 
     val totalEstimatedCost = items.filter { !it.isChecked }.sumOf { it.quantity * it.estimatedPricePerUnit }
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    val scaffoldState = rememberScaffoldState()
+    LaunchedEffect(priceNotFoundMessage) {
+        priceNotFoundMessage?.let {
+            scaffoldState.snackbarHostState.showSnackbar(it)
+            priceNotFoundMessage = null
+        }
+    }
+
+    Scaffold(scaffoldState = scaffoldState) { innerPadding ->
+    Column(modifier = modifier.fillMaxSize().padding(16.dp).padding(innerPadding)) {
         Text(
             text = "🛒 智慧買菜清單",
             fontSize = 24.sp,
@@ -66,12 +77,14 @@ fun SmartGroceryListScreen(
                 onClick = {
                     if (newItemName.isNotBlank()) {
                         scope.launch {
-                            val price = viewModel.searchCropPrice(newItemName) ?: 0.0
+                            val price = viewModel.searchCropPrice(newItemName)
+                            if (price == null) {
+                                priceNotFoundMessage = "找不到「$newItemName」的價格，已設為 0"
+                            }
                             items = items + GroceryItem(
-                                id = items.size + 1,
                                 name = newItemName,
                                 quantity = 1,
-                                estimatedPricePerUnit = price
+                                estimatedPricePerUnit = price ?: 0.0
                             )
                             newItemName = ""
                         }
@@ -121,7 +134,7 @@ fun SmartGroceryListScreen(
                             OutlinedTextField(
                                 value = item.quantity.toString(),
                                 onValueChange = { 
-                                    val newQ = it.toIntOrNull() ?: 1
+                                    val newQ = (it.toIntOrNull() ?: 1).coerceAtLeast(1)
                                     items = items.map { i -> if (i.id == item.id) i.copy(quantity = newQ) else i }
                                 },
                                 modifier = Modifier.width(60.dp).height(50.dp),
@@ -161,5 +174,6 @@ fun SmartGroceryListScreen(
                 )
             }
         }
-    }
+    } // end Column
+    } // end Scaffold
 }

@@ -5,6 +5,7 @@ struct ElderlyModeView: View {
     @State private var isRecording = false
     @State private var recognizedText = ""
     @State private var resultText = "阿嬤，您想查什麼菜？\n請按下方按鈕說話。"
+    @State private var isMicPermissionGranted = false
     
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-TW"))
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -27,6 +28,10 @@ struct ElderlyModeView: View {
                 .cornerRadius(20)
             
             Button(action: {
+                guard isMicPermissionGranted else {
+                    resultText = "阿嬤，請先開啟語音辨識權限（設定 > 隱私權 > 語音辨識）。"
+                    return
+                }
                 if isRecording {
                     stopRecording()
                 } else {
@@ -49,7 +54,18 @@ struct ElderlyModeView: View {
         .padding()
         .onAppear {
             SFSpeechRecognizer.requestAuthorization { authStatus in
-                // 處理授權狀態
+                DispatchQueue.main.async {
+                    switch authStatus {
+                    case .authorized:
+                        self.isMicPermissionGranted = true
+                    case .denied, .restricted:
+                        self.resultText = "阿嬤，請到「設定 > 隱私權 > 語音辨識」開啟權限，才能使用語音查詢。"
+                    case .notDetermined:
+                        break
+                    @unknown default:
+                        break
+                    }
+                }
             }
         }
     }
@@ -67,7 +83,13 @@ struct ElderlyModeView: View {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         
         let inputNode = audioEngine.inputNode
-        guard let recognitionRequest = recognitionRequest else { fatalError("Unable to create a SFSpeechAudioBufferRecognitionRequest object") }
+        guard let recognitionRequest = recognitionRequest else {
+            DispatchQueue.main.async {
+                self.resultText = "阿嬤，麥克風啟動失敗，請稍後再試。"
+                self.isRecording = false
+            }
+            return
+        }
         
         recognitionRequest.shouldReportPartialResults = true
         
