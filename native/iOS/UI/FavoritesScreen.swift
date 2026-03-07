@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct FavoritesScreen: View {
     @StateObject private var viewModel = ProduceViewModel()
+    private let hapticFeedback = UINotificationFeedbackGenerator()
     
     var body: some View {
         NavigationView {
@@ -84,6 +86,16 @@ struct FavoritesScreen: View {
                                     // 複用 HomeScreen.swift 中定義的 liquidGlass()
                                     .liquidGlass()
                                     .padding(.horizontal)
+                                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                        Button {
+                                            hapticFeedback.notificationOccurred(.success)
+                                            // 加入購物清單（可擴充至 SmartGroceryList 儲存邏輯）
+                                            UIPasteboard.general.string = item.cropName
+                                        } label: {
+                                            Label("加入清單", systemImage: "cart.badge.plus")
+                                        }
+                                        .tint(Color(hex: "4CAF50"))
+                                    }
                                 }
                             }
                             .padding(.vertical)

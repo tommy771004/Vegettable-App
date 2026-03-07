@@ -184,6 +184,8 @@ struct HomeScreen: View {
                                                     .font(.title3)
                                                     .fontWeight(.bold)
                                                     .foregroundColor(Color(hex: "2E7D32"))
+                                                    .contentTransition(.numericText())
+                                                    .animation(.easeInOut(duration: 0.4), value: produce.avgPrice)
                                                 
                                                 Button(action: {
                                                     ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
