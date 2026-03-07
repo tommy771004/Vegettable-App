@@ -14,68 +14,140 @@
 
 ---
 
+## 🔐 身分驗證架構 (Authentication Architecture)
+
+本系統採用 **JWT (JSON Web Token)** 進行前後端身份驗證，已從舊版 `X-User-Id` Header 全面升級：
+
+### JWT 認證流程
+```
+手機端 (冷啟動)
+  → POST /auth/token  { "deviceId": "<UUID>" }
+  ← { "token": "<JWT Bearer>" }
+  → 儲存至 UserDefaults (iOS) / SharedPreferences (Android)
+  → 所有後續 API 請求自動附加  Authorization: Bearer <token>
+```
+
+### Android JWT 自動注入
+*   **`JwtInterceptor.kt`**：OkHttp 攔截器，從 `SharedPreferences` 讀取 JWT token，自動注入所有 API 請求的 `Authorization: Bearer` Header。
+*   **`RetrofitClient.kt`**：使用 `BuildConfig.API_BASE_URL` 取得 API 基底 URL（由 `build.gradle` 的 `buildConfigField` 在編譯期注入，而非硬寫在程式碼中）。
+
+### iOS JWT 自動注入
+*   **`ProduceService.swift`**：所有 API 請求從 `UserDefaults` 讀取 JWT token，自動注入 `Authorization: Bearer` Header。
+*   **`Configuration.swift`**：API 基底 URL 從 `Config.plist` 讀取（Debug 模式若未設定則觸發 `assertionFailure`）。
+
+### 後端 JWT 設定安全性
+*   **`appsettings.json`**：`SecretKey` 欄位必須保持空字串，不得包含真實金鑰。
+*   **`appsettings.Development.json`**（本地開發專用）：含開發用金鑰，**不得** commit 至正式環境分支。
+*   **正式環境**：透過 OS 環境變數 `Jwt__SecretKey` 注入（ASP.NET Core 雙底線 = 巢狀設定）。
+*   **`Program.cs`**：啟動時驗證 `SecretKey` 是否已設定，若為空則拋出 `InvalidOperationException` 阻止服務啟動。
+
+---
+
 ## 📂 檔案詳細說明 (File Breakdown)
 
-### 🟣 Backend (C# ASP.NET Core)
+### 🟣 Backend (C# ASP.NET Core 8)
 後端負責資料整合、快取與提供 RESTful API。
 
 *   **`Program.cs`**
     *   **職責**：應用程式的進入點 (Entry Point)。負責依賴注入 (DI)，註冊資料庫連線 (Entity Framework)、HttpClient、背景同步服務 (`ProduceSyncWorker`) 以及設定 CORS。
+    *   **安全強化**：啟動時驗證 `Jwt__SecretKey` 環境變數，若未設定則明確提示錯誤訊息並阻止服務啟動。
 *   **`ProduceController.cs`**
     *   **職責**：RESTful API 控制器。提供手機端呼叫的端點，包含：
         *   `GET /daily-prices`：取得今日價格（支援 `keyword` 搜尋與 `page` 分頁）。
         *   `GET /history/{produceId}`：取得歷史價格趨勢（供手機端畫圖表）。
-        *   `POST /favorites`：同步使用者的收藏清單與目標追蹤價格。**（已修正邏輯：透過 `X-User-Id` Header 識別使用者，而非依賴 Request Body，提升安全性）**。
+        *   `GET /top-volume`：今日交易量前 10 名農產品。
+        *   `GET /anomalies`：單日漲幅超過 50% 的價格異常警告。
+        *   `GET /forecast/{produceId}`：根據 7 日移動平均計算明日價格趨勢。
+        *   `GET /seasonal`：當季盛產農作物清單（依月份篩選）。
+        *   `GET /weather-alerts`：中央氣象署颱風/豪大雨警報（RSS 解析），無警報時回傳 `alertType: "None"`。
+        *   `GET /budget-recipes`：依當季/低價食材推薦的省錢食譜清單。
+        *   `GET /favorites`、`DELETE /favorites/{produceId}`：使用者收藏管理。
+        *   `POST /community-price`、`GET /community-price/{cropCode}`：社群零售價回報。
+        *   `POST /auth/token`：以 `deviceId` 換取 JWT Bearer Token。
+    *   **已改善**：注入 `ILogger<ProduceController>`，天氣警報 API 失敗時使用 `LogWarning` 記錄而非 Crash，不影響主畫面資料。
+    *   **已移除**：`X-User-Id` Header 識別方式，已全面改為 JWT Bearer 認證。
 *   **`ProduceDbContext.cs`**
-    *   **職責**：Entity Framework Core 的資料庫上下文。定義了 `UserFavorites` (使用者收藏) 與 `PriceHistories` (歷史價格) 兩個資料表結構。
+    *   **職責**：Entity Framework Core 的資料庫上下文。定義了 `UserFavorites`、`PriceHistories`、`CommunityPrices` 資料表結構。
 *   **`ProduceSyncWorker.cs`**
     *   **職責**：背景託管服務 (Hosted Service)。每天定時在背景執行，向台灣農業部 API 抓取最新資料並寫入 `PriceHistories` 資料庫，確保後端擁有完整的歷史數據。
 *   **`ProduceDto.cs`**
-    *   **職責**：資料傳輸物件 (Data Transfer Object)。確保前後端傳遞的 JSON 欄位名稱與型別完全一致。
+    *   **職責**：資料傳輸物件 (Data Transfer Object)。確保前後端傳遞的 JSON 欄位名稱與型別完全一致。包含 `WeatherAlertDto`（天氣警報）與 `BudgetRecipeDto`（省錢食譜）。
 
 ---
 
-### 🟢 Android (Java)
-Android 端採用標準的 MVC/MVVM 網路架構，結合 OkHttp 與 SQLite。
+### 🟢 Android (Kotlin / Jetpack Compose / Hilt)
+Android 端採用標準的 **MVVM** 架構，結合 Jetpack Compose UI、Hilt 依賴注入、Retrofit 網路層與 Room 本地快取。
 
-*   **`ProduceRepository.java`**
-    *   **職責**：單一資料來源 (Single Source of Truth)。負責協調 `ProduceService` (網路) 與 `ProduceDatabaseHelper` (本地資料庫)。先嘗試打 API，失敗時自動退回讀取 SQLite 的離線快取。
-*   **`ProduceService.java`**
-    *   **職責**：網路請求層。使用 `OkHttp` 發送 API 請求，並使用 `Gson` 將後端回傳的 JSON 自動反序列化為 `ProduceDto` Java 物件。
-*   **`AuthInterceptor.java` (✨ 新增優化)**
-    *   **職責**：OkHttp 攔截器。自動在所有發送給後端的 API 請求中加入 `X-User-Id` Header（例如設備 ID），讓後端能識別是哪個使用者在操作，解決了前後端身分驗證的邏輯斷層。
-*   **`ProduceDatabaseHelper.java`**
-    *   **職責**：SQLite 資料庫管理員。負責建立本地資料表，用於儲存離線快取與本地收藏清單。
-*   **`PriceAlertWorker.java`**
-    *   **職責**：背景工作者 (WorkManager)。在背景定期檢查價格，若達到使用者的目標價，則觸發系統推播通知 (NotificationCompat)。
-*   **`ProduceDto.java`**
-    *   **職責**：對應後端的資料模型，確保 Gson 解析時欄位完全吻合。
+*   **`ProduceRepository.kt`**
+    *   **職責**：單一資料來源 (Single Source of Truth)。負責協調 `ProduceService` (網路) 與 `ProduceDao` (Room 本地資料庫)。先嘗試打 API，失敗時自動退回讀取 SQLite 的離線快取。
+*   **`ProduceService.kt`** (Retrofit Interface)
+    *   **職責**：網路請求層。以 Retrofit 介面定義所有 API 端點，Retrofit 自動序列化/反序列化 JSON。
+    *   **新增端點**：`getWeatherAlerts(): WeatherAlertDto`、`getBudgetRecipes(): List<BudgetRecipeDto>`。
+*   **`RetrofitClient.kt`**
+    *   **職責**：Retrofit 與 OkHttp 初始化。
+    *   **API URL**：使用 `BuildConfig.API_BASE_URL`（由 `build.gradle` `buildConfigField` 編譯期注入），避免 URL 硬寫在程式碼中。
+    *   **JWT 注入**：透過 `JwtInterceptor` 攔截所有請求，自動附加 `Authorization: Bearer` Header。
+*   **`ProduceDto.kt`**
+    *   **職責**：對應後端的 Kotlin data class。
+    *   **變更**：`HistoricalPriceDto.avgPrice` 與 `PricePredictionDto.predictedPrice` 型別從 `Float` 改為 `Double`（與後端 double 精度對齊）。
+    *   **新增**：`WeatherAlertDto`（天氣警報）、`BudgetRecipeDto`（省錢食譜）。
+*   **`ProduceViewModel.kt`**
+    *   **職責**：MVVM ViewModel 層，使用 `@HiltViewModel` + `StateFlow` 管理 UI 狀態。
+    *   **新增 StateFlow**：`weatherAlerts`、`budgetRecipes`（獨立 try-catch，不影響主資料載入）。
+*   **`ProduceFirebaseMessagingService.kt`**
+    *   **職責**：Firebase Cloud Messaging 推播處理。
+    *   **已修復**：移除錯誤的 `com.example.produce.data.ProduceService()` 實例化（ClassNotFoundException），改用 OkHttp 直接發送請求。
+    *   **JWT 整合**：FCM Token 向後端註冊時使用 JWT Bearer（從 `SharedPreferences` 讀取）。
+    *   **Deep Link**：通知點擊後透過 `PendingIntent` 傳遞 `produceId` Extra，啟動 `MainActivity` 並跳轉到對應農產品詳情頁。
+*   **`HomeScreen.kt`**
+    *   **職責**：首頁 UI，10 個資訊區塊依緊急程度排序：① 價格異常警報 → ② 今日熱門交易 → ③ 語音搜尋 → ④ 今日菜價 → ⑤ 天氣預警 → ⑥ 省錢食譜 → ⑦ 趨勢圖表 → ⑧ 當季盛產 → ⑨ 最近市場 → ⑩ 購物清單入口。
+    *   **毛玻璃效果**：`liquidGlass()` Modifier 以半透明淡綠色 + 白色細邊框實現。
+*   **`WeatherAlertCard.kt`**：訂閱 `viewModel.weatherAlerts`，當 `alertType == "None"` 時自動隱藏（不顯示卡片）。
+*   **`BudgetRecipeCard.kt`**：訂閱 `viewModel.budgetRecipes`，顯示真實 API 返回的省錢食譜（含 Loading/Error/Empty 三態）。
+*   **`PriceTrendChart.kt`**：Canvas 折線圖，加入無障礙語意 (`semantics { contentDescription }`)。
+*   **`VoiceSearchButton.kt`**：按鈕文字已修正為「點擊說話」（與實際點擊行為一致）。
 
 ---
 
-### 🍎 iOS (Swift)
-iOS 端採用原生 URLSession 與 CoreData 架構。
+### 🍎 iOS (SwiftUI / Combine / async-await)
+iOS 端採用 SwiftUI + `@MainActor` MVVM，以 URLSession + async/await 處理網路請求。
 
 *   **`ProduceRepository.swift`**
-    *   **職責**：單一資料來源。邏輯與 Android 相同，負責協調網路 API 與 CoreData，實作離線優先 (Offline-First) 邏輯。
+    *   **職責**：單一資料來源。邏輯與 Android 相同，負責協調網路 API 與 SwiftData，實作離線優先 (Offline-First) 邏輯。
 *   **`ProduceService.swift`**
-    *   **職責**：網路請求層。使用原生 `URLSession` 發送請求，並透過 `JSONDecoder` 與 `Codable` 協定，將 JSON 安全地轉換為 Swift Struct。**（已修正邏輯：自動在 Request 中注入 `X-User-Id` Header）**。
-*   **`ProduceCoreDataStore.swift`**
-    *   **職責**：CoreData 管理員。負責將 API 取得的資料持久化到 iPhone 本地儲存空間，供無網路時使用。
-*   **`PriceAlertNotifier.swift`**
-    *   **職責**：本地推播管理員。使用 `UNUserNotificationCenter`，在背景偵測到降價時發送 iOS 推播通知。
-*   **`ProduceDto.swift`**
-    *   **職責**：實作 `Codable` 的資料模型，確保與後端 JSON 欄位完美對應。
+    *   **職責**：網路請求層。使用原生 `URLSession` 發送請求，JWT Bearer Token 從 `UserDefaults` 讀取後自動注入每個請求的 `Authorization` Header。
+*   **`Configuration.swift`**
+    *   **職責**：API 基底 URL 從 `Config.plist` 讀取。
+    *   **安全強化**：移除硬寫 fallback URL，Debug 模式若 `Config.plist` 未設定則觸發 `assertionFailure`（開發期間立即發現設定錯誤）。
+*   **`AppDelegate.swift`**
+    *   **職責**：Firebase Cloud Messaging 初始化與 FCM Token 管理。
+    *   **已修正**：FCM Token 向後端註冊改用 JWT Bearer（移除舊 `X-User-Id` Header）。
+    *   **冷啟動處理**：若 JWT 尚未取得，以 `Task { await ProduceService.shared.ensureJwtToken() }` 異步等候後再注冊。
+*   **`MainTabView.swift`**
+    *   **職責**：底部導覽列，包含四個 Tab：首頁、收藏、探索、設定。
+    *   **新增「探索」Tab**：`ExploreMenuView` 以 `NavigationLink` 串聯所有進階功能頁面，解決孤立畫面無導覽入口問題：
+        *   長輩友善模式 (`ElderlyModeView`)
+        *   當季蔬果日曆 (`SeasonalCalendarView`)
+        *   社群物價回報 (`CommunityReportView`)
+        *   目標提醒設定 (`PriceAlertSetupView`)
+*   **`PriceChartView.swift`**
+    *   **職責**：農產品歷史價格趨勢圖（SwiftUI Charts）。
+    *   **已重寫**：接受 `produceId` + `produceName` 參數，透過 `ProduceService.shared.fetchPriceHistory(produceId:)` 取得真實 API 資料，支援 Loading/Error/Empty/Chart 四態 UI。
+*   **`Components.swift` (SkeletonView)**
+    *   **已升級**：從簡單閃爍動畫改為 `LinearGradient` 光澤掃過效果（shimmer sweep），以 `withAnimation(.linear.repeatForever(autoreverses: false))` 驅動。
+*   **`FavoritesScreen.swift`**
+    *   **已修正**：`item.isReached` → `item.isAlertTriggered`（對應後端 DTO 欄位名稱）。
 
 ---
 
 ## 🔄 前後端邏輯 Match 重點總結
 
 1. **分頁與搜尋 (Pagination & Search)**：前端不再一次接收 2000 筆資料，而是透過 `page` 與 `keyword` 參數向後端請求，後端透過 LINQ 過濾後只回傳 20 筆，大幅降低手機記憶體消耗。
-2. **身分識別 (Authentication)**：移除了原本在 Body 中手動傳遞 `UserId` 的錯誤邏輯。現在透過 Android 的 `Interceptor` 與 iOS 的 `URLRequest` 自動在 Header 注入 `X-User-Id`，後端 Controller 統一從 Header 讀取，邏輯完全 Match 且更安全。
+2. **身分識別 (Authentication)**：已從 `X-User-Id` Header 全面升級為 **JWT Bearer Token**。Android 透過 `JwtInterceptor`，iOS 透過 `ProduceService` 自動注入。後端以 `Jwt__SecretKey` 環境變數管理金鑰，嚴禁硬寫於程式碼中。
 3. **離線容錯 (Offline Tolerance)**：透過 Repository Pattern，前端在呼叫後端 API 失敗時，不會再發生 Crash，而是優雅地降級 (Fallback) 讀取本地資料庫。
 4. **JSON 解析邏輯修正 (Backend)**：政府 API 回傳的 JSON 欄位是中文 (如 `"作物代號"`)，如果後端直接用 `ProduceDto` 解析，會導致前端收到的也是中文欄位。新增了專門用來解析政府 API 的 `MoaProduceDto` (加上 `[JsonPropertyName]` 標籤)，並在 Controller 中將其映射回標準的 `ProduceDto`，確保前端收到的永遠是標準的英文欄位 (如 `"cropCode"`)。
 5. **背景同步服務邏輯修正 (`ProduceSyncWorker.cs`)**：實作了完整的 JSON 解析邏輯 (使用 `MoaProduceDto`)，並將每天抓取到的最新價格寫入 `PriceHistory` 資料表，讓後端真正成為資料的 Source of Truth。
+6. **天氣預警與食譜獨立容錯**：`weatherAlerts` 與 `budgetRecipes` API 各自有獨立的 try-catch，失敗時不影響主資料（菜價、異常、熱門交易等）的正常顯示。
 
 ---
 
@@ -83,70 +155,63 @@ iOS 端採用原生 URLSession 與 CoreData 架構。
 
 1. **市場比價 (Market Comparison)**：
    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/compare/{cropName}`，允許使用者查詢特定農產品在全台各市場的今日價格，並由低到高排序。
-   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `comparePrices` 方法，讓前端可以輕鬆呼叫比價 API。
 
 2. **價格預測與趨勢分析 (Price Forecasting)**：
    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/forecast/{produceId}`，根據過去 14 天的歷史資料，計算 7 日移動平均線，預測未來價格趨勢 (上漲、下跌或持平)。
-   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getForecast` 方法，讓前端可以取得價格預測結果。
 
 3. **熱門交易農產品 (Top Volume Crops)**：
-   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/top-volume`，取得今日交易量最大的前 10 名農產品，幫助使用者了解目前市場上最熱銷、當季的農產品。
-   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getTopVolumeCrops` 方法，讓前端可以輕鬆呼叫熱門農產品 API。
+   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/top-volume`，取得今日交易量最大的前 10 名農產品。
 
 4. **我的收藏與價格提醒 (My Favorites & Price Alerts)**：
-   - **Backend (`ProduceController.cs`)**：
-     - 新增 `GET /api/produce/favorites`：取得使用者的收藏清單，並自動比對今日最新價格，判斷是否達到使用者設定的目標價格 (`IsAlertTriggered`)。
-     - 新增 `DELETE /api/produce/favorites/{produceId}`：允許使用者移除收藏。
-   - **Android/iOS (`ProduceDto.java`, `ProduceDto.swift`)**：新增 `FavoriteAlertDto`，確保前後端資料結構完全一致。
-   - **Android/iOS (`ProduceService.java`, `ProduceService.swift`)**：新增 `getFavorites` 與 `removeFavorite` 方法，讓前端可以輕鬆管理收藏並顯示價格提醒。
+   - **Backend (`ProduceController.cs`)**：`GET /api/produce/favorites` 自動比對今日最新價格，判斷是否達到目標價格 (`IsAlertTriggered`)。
+   - **Android/iOS**：新增 `FavoriteAlertDto`，確保前後端資料結構完全一致。
 
-5. **主動式推播通知 (Push Notifications)**：
-   - **Backend (`PriceAlertWorker.cs`)**：新增 `BackgroundService`，每天清晨自動掃描所有使用者的 `TargetPrice`，一旦達標，透過 Firebase Admin SDK 發送真實的手機推播通知 (FCM)。
+5. **天氣警報整合 (Weather Alerts)**：
+   - **Backend (`ProduceController.cs`)**：`GET /api/produce/weather-alerts` 解析中央氣象署 RSS 取得颱風/豪大雨警報，無警報時回傳 `alertType: "None"`，失敗時記錄 `LogWarning` 而非 Crash。
+   - **Android (`WeatherAlertDto`, `WeatherAlertCard.kt`)**：新增 DTO 與對應的 Compose UI，`alertType == "None"` 時自動隱藏。
+   - **iOS**：對應的天氣警報顯示邏輯。
 
-6. **離線快取機制 (Offline Caching)**：
-   - **Android (`ProduceEntity.java`, `ProduceDao.java`, `ProduceDatabase.java`)**：導入 `Room Database`，在有網路時自動快取「我的收藏」與「今日熱門農產品」的最新價格。
+6. **省錢食譜推薦 (Budget Recipe Generator)**：
+   - **Backend (`ProduceController.cs`)**：`GET /api/produce/budget-recipes` 依當季/低價食材生成省錢食譜清單。
+   - **Android (`BudgetRecipeDto`, `BudgetRecipeCard.kt`)**：新增 DTO 與對應的 Compose UI，支援 Loading/Error/Empty/Success 四態。
+
+7. **主動式推播通知 (Push Notifications)**：
+   - **Backend (`PriceAlertWorker.cs`)**：新增 `BackgroundService`，每天清晨自動掃描所有使用者的 `TargetPrice`，透過 Firebase Admin SDK 發送 FCM 推播通知。
+   - **Android**：FCM 通知點擊後透過 `PendingIntent` Deep Link 傳遞 `produceId`，開啟農產品詳情頁。
+   - **iOS**：FCM Token 以 JWT Bearer 向後端註冊。
+
+8. **離線快取機制 (Offline Caching)**：
+   - **Android (`ProduceEntity.kt`, `ProduceDao.kt`, `ProduceDatabase.kt`)**：導入 `Room Database`，在有網路時自動快取「我的收藏」與「今日熱門農產品」的最新價格。
    - **iOS (`ProduceModel.swift`)**：導入 `SwiftData` 進行本地快取。
 
-7. **社群回報機制 (Community Retail Price)**：
+9. **社群回報機制 (Community Retail Price)**：
    - **Backend (`ProduceController.cs`)**：新增 `POST /api/produce/community-price` 與 `GET /api/produce/community-price/{cropCode}` 讓使用者回報與查詢零售價。
-   - **Android/iOS (`CommunityPriceDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法。
 
-8. **當季盛產日曆 (Seasonal Crop Calendar)**：
-   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/seasonal`，根據目前的月份，自動篩選出盛產的農產品清單。
-   - **Android/iOS (`SeasonalCropDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法。
+10. **當季盛產日曆 (Seasonal Crop Calendar)**：
+    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/seasonal`，根據目前的月份，自動篩選出盛產的農產品清單。
 
-9. **農產品價格異常警告 (Price Anomaly Detection)**：
-   - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/anomalies`，自動比對近兩日的歷史價格，若單日漲幅超過 50%（例如因颱風或豪雨），則自動產生異常警報。
-   - **Android/iOS (`PriceAnomalyDto`, `ProduceService`)**：新增對應的 DTO 與 API 呼叫方法，讓前端能在首頁顯示「價格異常警報」，提醒使用者避開購買。
+11. **農產品價格異常警告 (Price Anomaly Detection)**：
+    - **Backend (`ProduceController.cs`)**：新增 `GET /api/produce/anomalies`，自動比對近兩日的歷史價格，若單日漲幅超過 50%，則自動產生異常警報。
 
-10. **多語系與無障礙設計 (i18n & Accessibility)**：
-    - **Android/iOS (`strings.xml`, `Localizable.strings`)**：針對外籍移工或長輩，加入多國語言支援（如印尼語 `id`、越南語 `vi`）。
-    - **Android (`TextToSpeechHelper.java`)**：導入 `android.speech.tts.TextToSpeech`，提供語音播報功能，並可調慢語速，方便長輩或視力不佳者聽取價格。
+12. **多語系與無障礙設計 (i18n & Accessibility)**：
+    - **Android/iOS**：針對外籍移工或長輩，加入多國語言支援（如印尼語 `id`、越南語 `vi`）。
+    - **Android (`TextToSpeechHelper.kt`)**：導入 `android.speech.tts.TextToSpeech`，提供語音播報功能，並可調慢語速。
     - **iOS (`TextToSpeechHelper.swift`)**：導入 `AVFoundation` 的 `AVSpeechSynthesizer`，實現跨語系的語音播報輔助。
+    - **Android (`PriceTrendChart.kt`)**：Canvas 圖表加入 `semantics { contentDescription }` 無障礙語意，方便螢幕閱讀器使用者。
 
-11. **前端 UI 介面實作 (UI Layer)**：
-    - **UI 風格 (iOS 26 Liquid Glass / 毛玻璃)**：參考未來感十足的 iOS 26 質感，全站採用淡綠色漸層底色，並搭配半透明、帶有模糊效果與白色細邊框的卡片設計。底部導覽列採用「懸浮式毛玻璃 (Floating Liquid Glass)」設計，營造清新且極具現代感的視覺體驗。
+13. **探索 Tab 導覽整合 (iOS)**：
+    - **iOS (`MainTabView.swift`)**：新增第四個「探索」Tab，以 `ExploreMenuView` 列出所有進階功能頁面的 `NavigationLink`，解決 `ElderlyModeView`、`SeasonalCalendarView`、`CommunityReportView`、`PriceAlertSetupView` 等畫面無導覽入口的問題。
+
+14. **前端 UI 介面實作 (UI Layer)**：
+    - **UI 風格 (iOS 26 Liquid Glass / 毛玻璃)**：全站採用淡綠色漸層底色，搭配半透明、帶有模糊效果與白色細邊框的卡片設計。底部導覽列採用「懸浮式毛玻璃 (Floating Liquid Glass)」設計。
     - **Android (Jetpack Compose)**：
-      - `MainScreen.kt`：實作懸浮式底部導覽列 (Bottom Navigation)，串聯首頁、收藏與設定頁面。
-      - `ProduceViewModel.kt`：使用 `StateFlow` 綁定資料，並提供歷史價格、預測數據與收藏清單。
-      - `HomeScreen.kt`：實作 `liquidGlass()` Modifier 達成毛玻璃效果。包含異常警報、熱門交易、以及帶有語音播報的菜價列表。
-      - `FavoritesScreen.kt`：實作「我的收藏」頁面，延續 Liquid Glass 風格，並根據目標價是否達成顯示不同的鈴鐺狀態 (已達標/追蹤中)。
-      - `SettingsScreen.kt`：實作「設定」頁面，包含推播、語言、離線快取等選項。
-      - `PriceTrendChart.kt`：使用 `Canvas` 繪製折線圖，實線代表歷史價格，虛線 (橘色) 代表 AI 預測趨勢。
-      - `PriceChartActivity.java`：使用 `MPAndroidChart` 繪製歷史價格走勢圖。
-      - `CommunityReportActivity.java`：實作社群回報零售價表單。
-      - `ElderlyModeActivity.java`：實作長輩友善語音查詢模式。
-      - `SeasonalCalendarActivity.java`：實作節氣與當季農產品日曆。
-      - `PriceAlertSetupActivity.java`：實作價格追蹤與到價提醒設定。
+      - `HomeScreen.kt`：10 個資訊區塊依緊急程度排序的首頁 UI。
+      - `FavoritesScreen.kt`：我的收藏頁面，根據目標價是否達成顯示不同鈴鐺狀態。
+      - `SettingsScreen.kt`：設定頁面，包含推播、語言、離線快取等選項。
+      - `PriceTrendChart.kt`：Canvas 折線圖，含無障礙語意標籤。
     - **iOS (SwiftUI)**：
-      - `MainTabView.swift`：實作懸浮式底部導覽列，完美融合 `.ultraThinMaterial` 打造 iOS 26 質感。
-      - `ProduceViewModel.swift`：使用 `@MainActor` 與 `@Published` 進行狀態管理，包含收藏清單資料。
-      - `HomeScreen.swift`：使用 `.ultraThinMaterial` 搭配淡綠色背景實作毛玻璃質感 (`LiquidGlassModifier`)。
-      - `FavoritesScreen.swift`：實作「我的收藏」頁面，延續毛玻璃質感，並使用 SF Symbols 呈現目標價追蹤狀態。
-      - `SettingsScreen.swift`：實作「設定」頁面，提供各項 App 設定選項。
-      - `PriceTrendView.swift`：導入 Apple 原生 `Charts` 框架，使用 `LineMark` 繪製歷史與預測價格走勢圖。
-      - `PriceChartView.swift`：使用 SwiftUI Charts 繪製歷史價格走勢圖。
-      - `CommunityReportView.swift`：實作社群回報零售價表單。
-      - `ElderlyModeView.swift`：實作長輩友善語音查詢模式。
-      - `SeasonalCalendarView.swift`：實作節氣與當季農產品日曆。
-      - `PriceAlertSetupView.swift`：實作價格追蹤與到價提醒設定。
+      - `MainTabView.swift`：含「探索」Tab 的四分頁底部導覽列。
+      - `HomeScreen.swift`：使用 `.ultraThinMaterial` 的毛玻璃質感首頁。
+      - `FavoritesScreen.swift`：收藏頁面，已修正 `isAlertTriggered` 欄位對應。
+      - `PriceChartView.swift`：接真實 API 的歷史趨勢圖，含四態 UI。
+      - `Components.swift`：`SkeletonView` 升級為 shimmer sweep 光澤動畫。

@@ -38,7 +38,8 @@ fun HomeScreen(
     viewModel: ProduceViewModel,
     ttsHelper: TextToSpeechHelper,
     onNavigateToGroceryList: () -> Unit = {},
-    onNavigateToElderlyMode: () -> Unit = {}
+    onNavigateToElderlyMode: () -> Unit = {},
+    highlightedProduceId: String? = null
 ) {
     val anomaliesState by viewModel.anomalies.collectAsState()
     val topVolumeState by viewModel.topVolume.collectAsState()
@@ -151,7 +152,10 @@ fun HomeScreen(
                             item { EmptyStateView(message = "今日暫無菜價資料", icon = Icons.Default.ShoppingCart) }
                         } else {
                             items(dailyPrices) { produce ->
-                                Box(modifier = Modifier.fillMaxWidth().liquidGlass().padding(16.dp)) {
+                                val isHighlighted = produce.produceId == highlightedProduceId
+                                Box(modifier = Modifier.fillMaxWidth()
+                                    .then(if (isHighlighted) Modifier.border(2.dp, Color(0xFFFF6F00), RoundedCornerShape(16.dp)) else Modifier)
+                                    .liquidGlass().padding(16.dp)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Column {
                                             Text(produce.cropName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))

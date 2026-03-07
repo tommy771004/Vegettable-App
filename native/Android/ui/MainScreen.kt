@@ -29,7 +29,11 @@ enum class BottomTab(val title: String, val icon: ImageVector) {
 }
 
 @Composable
-fun MainScreen(viewModel: ProduceViewModel, ttsHelper: TextToSpeechHelper) {
+fun MainScreen(
+    viewModel: ProduceViewModel,
+    ttsHelper: TextToSpeechHelper,
+    deepLinkProduceId: String? = null
+) {
     var currentTab by remember { mutableStateOf(BottomTab.HOME) }
     val context = LocalContext.current
     
@@ -49,7 +53,8 @@ fun MainScreen(viewModel: ProduceViewModel, ttsHelper: TextToSpeechHelper) {
                     onNavigateToElderlyMode = {
                         val intent = Intent(context, ElderlyModeActivity::class.java)
                         context.startActivity(intent)
-                    }
+                    },
+                    highlightedProduceId = deepLinkProduceId
                 )
                 BottomTab.FAVORITES -> FavoritesScreen(viewModel)
                 BottomTab.SETTINGS -> SettingsScreen()
