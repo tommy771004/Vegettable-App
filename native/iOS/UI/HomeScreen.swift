@@ -22,7 +22,8 @@ extension View {
 }
 
 struct HomeScreen: View {
-    @StateObject private var viewModel = ProduceViewModel()
+    // 由 MainTabView 透過 environmentObject 注入，與 FavoritesScreen 共享同一份資料
+    @EnvironmentObject var viewModel: ProduceViewModel
     private let ttsHelper = TextToSpeechHelper()
     
     var body: some View {

@@ -6,6 +6,9 @@ enum BottomTab {
 
 struct MainTabView: View {
     @State private var currentTab: BottomTab = .home
+    // 單一 ViewModel 實例：HomeScreen 和 FavoritesScreen 共享同一份資料，
+    // 避免切換頁籤時重複發送 API 請求
+    @StateObject private var sharedViewModel = ProduceViewModel()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -20,8 +23,10 @@ struct MainTabView: View {
                 switch currentTab {
                 case .home:
                     HomeScreen()
+                        .environmentObject(sharedViewModel)
                 case .favorites:
                     FavoritesScreen()
+                        .environmentObject(sharedViewModel)
                 case .explore:
                     ExploreMenuView()
                 case .settings:
