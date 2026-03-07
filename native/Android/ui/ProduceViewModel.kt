@@ -239,6 +239,26 @@ class ProduceViewModel @Inject constructor(
     }
 
     /**
+     * 刪除指定農產品收藏及到價提醒
+     * 採樂觀更新：先從本地 StateFlow 移除，再呼叫後端，失敗時重新載入
+     * @param produceId 農產品代碼（例："LA1"）
+     */
+    suspend fun removeFavorite(produceId: String) {
+        // 樂觀更新：即時從 UI 移除，不等後端回應
+        val currentList = (_favorites.value as? Resource.Success)?.data ?: emptyList()
+        _favorites.value = Resource.Success(currentList.filter { it.produceId != produceId })
+        try {
+            produceService.deleteFavorite(produceId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // 失敗時回滾：重新載入收藏清單
+            try {
+                _favorites.value = Resource.Success(produceService.getFavorites())
+            } catch (_: Exception) {}
+        }
+    }
+
+    /**
      * 新增或更新農產品到收藏清單，並設定目標到價提醒
      * @param produceId 農產品代碼（例："LA1"）
      * @param targetPrice 使用者設定的目標提醒價格（跌破此價格時發送 FCM 推播）

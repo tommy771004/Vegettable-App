@@ -154,4 +154,11 @@ interface ProduceService {
      */
     @POST("favorites")
     suspend fun addFavorite(@Body body: AddFavoriteDto): Any
+
+    /**
+     * 刪除指定農產品收藏及其到價提醒
+     * 對應後端：DELETE /api/produce/favorites/{produceId}
+     */
+    @DELETE("favorites/{produceId}")
+    suspend fun deleteFavorite(@Path("produceId") produceId: String)
 }

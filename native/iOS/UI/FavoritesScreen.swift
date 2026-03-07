@@ -91,14 +91,21 @@ struct FavoritesScreen: View {
                                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                         Button {
                                             hapticFeedback.notificationOccurred(.success)
-                                            // 複製名稱到剪貼板，方便在買菜清單手動貼上
-                                            // TODO: 未來改為直接寫入 SmartGroceryList 持久化儲存
                                             UIPasteboard.general.string = item.cropName
                                             addedToListName = item.cropName
                                         } label: {
                                             Label("複製名稱", systemImage: "cart.badge.plus")
                                         }
                                         .tint(Color(hex: "4CAF50"))
+                                    }
+                                    // 右滑：刪除收藏（即時從清單移除，呼叫後端 DELETE）
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            hapticFeedback.notificationOccurred(.warning)
+                                            Task { await viewModel.removeFavorite(produceId: item.produceId) }
+                                        } label: {
+                                            Label("刪除", systemImage: "trash.fill")
+                                        }
                                     }
                                 }
                             }

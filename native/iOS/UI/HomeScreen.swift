@@ -25,7 +25,12 @@ struct HomeScreen: View {
     // 由 MainTabView 透過 environmentObject 注入，與 FavoritesScreen 共享同一份資料
     @EnvironmentObject var viewModel: ProduceViewModel
     private let ttsHelper = TextToSpeechHelper()
-    
+
+    // 收藏 Sheet 狀態
+    @State private var favoriteTarget: ProduceDto? = nil
+    @State private var targetPriceInput: String = ""
+    @State private var favoriteResult: String? = nil
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -39,7 +44,11 @@ struct HomeScreen: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        
+
+                        // 0. 🌟 Hero 摘要橫幅
+                        HeroBanner(viewModel: viewModel)
+                            .padding(.horizontal)
+
                         // 1. 價格異常警報
                         switch viewModel.anomalies {
                         case .loading:
@@ -188,12 +197,22 @@ struct HomeScreen: View {
                                                     .contentTransition(.numericText())
                                                     .animation(.easeInOut(duration: 0.4), value: produce.avgPrice)
                                                 
-                                                Button(action: {
-                                                    ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
-                                                }) {
-                                                    Image(systemName: "speaker.wave.2.fill")
-                                                        .foregroundColor(Color(hex: "388E3C"))
-                                                        .padding(.leading, 12)
+                                                HStack(spacing: 4) {
+                                                    Button(action: {
+                                                        ttsHelper.speak(text: "今日 \(produce.cropName) 價格是 \(produce.avgPrice) 元")
+                                                    }) {
+                                                        Image(systemName: "speaker.wave.2.fill")
+                                                            .foregroundColor(Color(hex: "388E3C"))
+                                                            .padding(.leading, 8)
+                                                    }
+                                                    Button(action: {
+                                                        favoriteTarget = produce
+                                                        targetPriceInput = String(format: "%.1f", produce.avgPrice)
+                                                    }) {
+                                                        Image(systemName: "heart")
+                                                            .foregroundColor(Color(hex: "E91E63"))
+                                                            .padding(.leading, 4)
+                                                    }
                                                 }
                                             }
                                             .padding()
@@ -212,7 +231,150 @@ struct HomeScreen: View {
             .refreshable {
                 await viewModel.fetchDashboardData()
             }
+            // 加入收藏 Sheet
+            .sheet(item: $favoriteTarget) { produce in
+                AddFavoriteSheet(
+                    produce: produce,
+                    targetPriceInput: $targetPriceInput,
+                    onConfirm: { price in
+                        Task {
+                            let ok = await viewModel.addToFavorites(produceId: produce.cropCode, targetPrice: price)
+                            favoriteResult = ok ? "✅ \(produce.cropName) 已加入收藏，目標價 $\(String(format: "%.1f", price))/kg" : "⚠️ 加入失敗，請稍後再試"
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { favoriteResult = nil }
+                        }
+                    }
+                )
+                .presentationDetents([.height(320)])
+            }
+            // 收藏成功 Toast
+            .overlay(alignment: .bottom) {
+                if let msg = favoriteResult {
+                    Text(msg)
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color(hex: "2E7D32").opacity(0.92))
+                        .foregroundColor(.white)
+                        .cornerRadius(20)
+                        .padding(.bottom, 24)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: favoriteResult)
         }
+    }
+}
+
+// MARK: - 加入收藏 Sheet
+private struct AddFavoriteSheet: View {
+    let produce: ProduceDto
+    @Binding var targetPriceInput: String
+    let onConfirm: (Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("❤️ 加入收藏：\(produce.cropName)")
+                .font(.headline)
+                .padding(.top, 20)
+
+            Text("設定到價提醒：當價格低於此目標價時，系統將發送推播通知。")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            TextField("目標提醒價格 (元/公斤)", text: $targetPriceInput)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+
+            HStack(spacing: 12) {
+                Button("取消") { dismiss() }
+                    .foregroundColor(.secondary)
+
+                Button("確認收藏") {
+                    if let price = Double(targetPriceInput) {
+                        onConfirm(price)
+                        dismiss()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "4CAF50"))
+                .disabled(Double(targetPriceInput) == nil)
+            }
+            .padding(.horizontal)
+        }
+        .padding(.bottom, 20)
+    }
+}
+
+// MARK: - Hero 摘要橫幅
+/// 首頁頂部深綠漸層 Banner，顯示今日日期與行情筆數，對齊 Android Hero 設計
+private struct HeroBanner: View {
+    let viewModel: ProduceViewModel
+
+    private var todayString: String {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "zh_TW")
+        fmt.dateFormat = "M月d日"
+        return fmt.string(from: Date())
+    }
+
+    private var totalCount: Int {
+        if case .success(let prices) = viewModel.dailyPrices { return prices.count }
+        return 0
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            LinearGradient(
+                colors: [Color(hex: "1B5E20"), Color(hex: "2E7D32"), Color(hex: "388E3C")],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .cornerRadius(20)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("🌿 今日農產批發")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                    Text(todayString)
+                        .font(.title)
+                        .fontWeight(.black)
+                        .foregroundColor(.white)
+                    if totalCount > 0 {
+                        Text("共 \(totalCount) 筆今日行情")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text("🇹🇼 臺灣農業")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Capsule())
+
+                    Text("即時更新")
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "4CAF50").opacity(0.4))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(20)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 110)
     }
 }
 
