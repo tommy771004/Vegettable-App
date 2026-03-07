@@ -161,4 +161,61 @@ class ProduceViewModel: ObservableObject {
             self.favorites = .failure(error)
         }
     }
+
+    // MARK: - 收藏管理
+
+    /// 刪除指定農產品收藏，並從本地狀態中即時移除（無需重新載入全部資料）
+    func removeFavorite(produceId: String) async {
+        do {
+            try await produceService.deleteFavorite(produceId: produceId)
+            // 樂觀更新：直接從本地清單移除，不等待 API 重新拉取
+            if case .success(let current) = favorites {
+                favorites = .success(current.filter { $0.produceId != produceId })
+            }
+        } catch {
+            print("[ProduceViewModel] 刪除收藏失敗：\(error)")
+        }
+    }
+
+    /// 更新已收藏農產品的目標到價提醒價格（不重新載入全部清單）
+    func updateFavoriteTargetPrice(produceId: String, targetPrice: Double) async -> Bool {
+        do {
+            try await produceService.updateFavoriteTargetPrice(produceId: produceId, targetPrice: targetPrice)
+            // 樂觀更新：只修改本地狀態中的 targetPrice，無需重新拉取
+            if case .success(let current) = favorites {
+                favorites = .success(current.map { item in
+                    guard item.produceId == produceId else { return item }
+                    return FavoriteAlertDto(
+                        produceId: item.produceId,
+                        produceName: item.produceName,
+                        targetPrice: targetPrice,
+                        currentPrice: item.currentPrice,
+                        isAlertTriggered: item.currentPrice <= targetPrice
+                    )
+                })
+            }
+            return true
+        } catch {
+            print("[ProduceViewModel] 更新目標提醒失敗：\(error)")
+            return false
+        }
+    }
+
+    /// 新增或更新農產品收藏及目標到價提醒
+    func addToFavorites(produceId: String, targetPrice: Double) async -> Bool {
+        return await withCheckedContinuation { continuation in
+            produceService.syncFavorite(produceId: produceId, targetPrice: targetPrice) { [weak self] success in
+                if success {
+                    Task { [weak self] in
+                        guard let self else { return }
+                        do {
+                            let updated = try await self.produceService.getFavorites()
+                            self.favorites = .success(updated)
+                        } catch {}
+                    }
+                }
+                continuation.resume(returning: success)
+            }
+        }
+    }
 }

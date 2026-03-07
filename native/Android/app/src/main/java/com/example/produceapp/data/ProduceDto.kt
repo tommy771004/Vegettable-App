@@ -104,3 +104,8 @@ data class AddFavoriteDto(
     @SerializedName("produceId") val produceId: String,
     @SerializedName("targetPrice") val targetPrice: Double
 )
+
+// 修改目標到價提醒 DTO (PUT /api/produce/favorites/{produceId})
+data class UpdateFavoriteDto(
+    @SerializedName("targetPrice") val targetPrice: Double
+)

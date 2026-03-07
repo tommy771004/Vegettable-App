@@ -12,7 +12,10 @@ import Foundation
 
 // MARK: - 農產品基本資料
 /// 對應後端 ProduceDto.cs，包含一筆農產品的日期、市場、價格資訊
-struct ProduceDto: Codable {
+struct ProduceDto: Codable, Identifiable {
+    // Identifiable：以 cropCode + marketCode 複合鍵確保 List 中每筆唯一
+    var id: String { "\(cropCode)-\(marketCode)-\(date)" }
+
     let cropCode: String      // 農產品代碼 (例："LA1" = 高麗菜)
     let cropName: String      // 農產品名稱 (例："高麗菜")
     let marketCode: String    // 市場代碼 (例："110" = 台北第一果菜市場)

@@ -76,7 +76,7 @@ fun MainScreen(
                 )
                 BottomTab.FAVORITES -> FavoritesScreen(viewModel)
                 BottomTab.COMMUNITY -> CommunityReportScreen(viewModel)
-                BottomTab.SETTINGS -> SettingsScreen()
+                BottomTab.SETTINGS -> SettingsScreen(viewModel)
                 BottomTab.GROCERY_LIST -> SmartGroceryListScreen()
             }
         }
