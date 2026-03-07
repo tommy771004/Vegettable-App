@@ -156,6 +156,16 @@ interface ProduceService {
     suspend fun addFavorite(@Body body: AddFavoriteDto): Any
 
     /**
+     * 修改已收藏農產品的目標到價提醒價格
+     * 對應後端：PUT /api/produce/favorites/{produceId}
+     */
+    @PUT("favorites/{produceId}")
+    suspend fun updateFavorite(
+        @Path("produceId") produceId: String,
+        @Body body: UpdateFavoriteDto
+    ): Any
+
+    /**
      * 刪除指定農產品收藏及其到價提醒
      * 對應後端：DELETE /api/produce/favorites/{produceId}
      */

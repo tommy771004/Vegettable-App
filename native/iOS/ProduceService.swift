@@ -34,6 +34,9 @@ protocol ProduceServiceProtocol {
     func fetchPriceHistory(produceId: String) async throws -> [HistoricalPriceDto]
     func getForecast(produceId: String) async throws -> PricePredictionResponse
     func getFavorites() async throws -> [FavoriteAlertDto]
+    func deleteFavorite(produceId: String) async throws
+    func updateFavoriteTargetPrice(produceId: String, targetPrice: Double) async throws
+    func syncFavorite(produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void)
 }
 
 // MARK: - JWT Token Response
@@ -505,6 +508,22 @@ class ProduceService: ProduceServiceProtocol {
             throw URLError(.badURL)
         }
         request.httpMethod = "DELETE"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+    }
+
+    /// 更新收藏農產品的目標到價提醒價格
+    /// 對應後端 PUT /api/produce/favorites/{produceId}
+    func updateFavoriteTargetPrice(produceId: String, targetPrice: Double) async throws {
+        let urlString = "\(baseURL)/favorites/\(produceId)"
+        guard var request = makeAuthenticatedRequest(urlString: urlString, method: "PUT") else {
+            throw URLError(.badURL)
+        }
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["targetPrice": targetPrice]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         let (_, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw URLError(.badServerResponse)

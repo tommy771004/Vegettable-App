@@ -177,6 +177,30 @@ class ProduceViewModel: ObservableObject {
         }
     }
 
+    /// 更新已收藏農產品的目標到價提醒價格（不重新載入全部清單）
+    func updateFavoriteTargetPrice(produceId: String, targetPrice: Double) async -> Bool {
+        do {
+            try await produceService.updateFavoriteTargetPrice(produceId: produceId, targetPrice: targetPrice)
+            // 樂觀更新：只修改本地狀態中的 targetPrice，無需重新拉取
+            if case .success(let current) = favorites {
+                favorites = .success(current.map { item in
+                    guard item.produceId == produceId else { return item }
+                    return FavoriteAlertDto(
+                        produceId: item.produceId,
+                        produceName: item.produceName,
+                        targetPrice: targetPrice,
+                        currentPrice: item.currentPrice,
+                        isAlertTriggered: item.currentPrice <= targetPrice
+                    )
+                })
+            }
+            return true
+        } catch {
+            print("[ProduceViewModel] 更新目標提醒失敗：\(error)")
+            return false
+        }
+    }
+
     /// 新增或更新農產品收藏及目標到價提醒
     func addToFavorites(produceId: String, targetPrice: Double) async -> Bool {
         return await withCheckedContinuation { continuation in
