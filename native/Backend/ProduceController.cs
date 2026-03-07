@@ -107,9 +107,14 @@ namespace ProduceApi.Controllers
                 }).ToList();
 
                 // 1. 搜尋過濾
+                // [Bug Fix] 原本 x.CropName.Contains(keyword) 在 CropName 或 MarketName 為 null 時
+                // 會拋出 NullReferenceException。修正：使用 null 條件運算子 ?. 避免 NPE。
                 if (!string.IsNullOrEmpty(keyword))
                 {
-                    allItems = allItems.Where(x => x.CropName.Contains(keyword) || x.MarketName.Contains(keyword)).ToList();
+                    allItems = allItems.Where(x =>
+                        (x.CropName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (x.MarketName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false)
+                    ).ToList();
                 }
 
                 // 2. 分頁處理
@@ -260,18 +265,24 @@ namespace ProduceApi.Controllers
                 string rawData = await _produceService.FetchProduceDataAsync("ALL");
                 var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
 
-                var topItems = moaItems.Select(m => new ProduceDto {
-                    CropCode = m.CropCode,
-                    CropName = m.CropName,
-                    MarketCode = m.MarketCode,
-                    MarketName = m.MarketName,
-                    AvgPrice = m.AvgPrice,
-                    TransQuantity = m.TransQuantity,
-                    Date = m.Date
-                })
-                .OrderByDescending(x => x.TransQuantity)
-                .Take(10)
-                .ToList();
+                // [Improvement] 原本直接對市場-作物組合排序取前 10，
+                // 同一作物（如高麗菜）在 20 個市場都有記錄，全部佔滿前 10 名。
+                // 修正：先 GroupBy CropCode 合計全台交易量，再取前 10 名，
+                // 使排名代表全台各「作物」的交易量，而非各「市場-作物」組合。
+                var topItems = moaItems
+                    .GroupBy(m => m.CropCode)
+                    .Select(g => new ProduceDto {
+                        CropCode = g.Key,
+                        CropName = g.First().CropName,
+                        MarketCode = "",
+                        MarketName = "全台合計",
+                        AvgPrice = g.Average(m => m.AvgPrice),
+                        TransQuantity = g.Sum(m => m.TransQuantity),
+                        Date = g.First().Date
+                    })
+                    .OrderByDescending(x => x.TransQuantity)
+                    .Take(10)
+                    .ToList();
 
                 return Ok(topItems);
             }
@@ -324,6 +335,8 @@ namespace ProduceApi.Controllers
                 {
                     UserId = userId,
                     ProduceId = request.ProduceId,
+                    // [Bug Fix] 儲存作物名稱，供 GetFavorites 在 MOA API 無資料時作為 fallback。
+                    ProduceName = request.ProduceName,
                     TargetPrice = request.TargetPrice
                 });
             }
@@ -360,11 +373,17 @@ namespace ProduceApi.Controllers
             string rawData = await _produceService.FetchProduceDataAsync("ALL");
             var moaItems = JsonSerializer.Deserialize<List<MoaProduceDto>>(rawData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<MoaProduceDto>();
 
+            // [Improvement] 原本在迴圈內 FirstOrDefault(m => m.CropCode == fav.ProduceId) 是 O(N) 搜尋，
+            // 每筆收藏都要掃描 ~2000 筆 MOA 資料 → 整體 O(M×N)。
+            // 修正：先建立 CropCode → 最新均價 Dictionary，查詢降為 O(1)。
+            var priceDict = moaItems
+                .GroupBy(m => m.CropCode)
+                .ToDictionary(g => g.Key, g => g.First());
+
             var result = new List<FavoriteAlertDto>();
             foreach (var fav in favorites)
             {
-                // 假設 ProduceId 是 CropCode，並取得該作物的最新平均價格
-                var latestData = moaItems.FirstOrDefault(m => m.CropCode == fav.ProduceId);
+                priceDict.TryGetValue(fav.ProduceId, out var latestData);
                 double currentPrice = latestData?.AvgPrice ?? 0;
                 string produceName = latestData?.CropName ?? fav.ProduceName ?? "Unknown";
 
@@ -640,6 +659,17 @@ namespace ProduceApi.Controllers
         [HttpGet("weather-alerts")]
         public async Task<IActionResult> GetWeatherAlerts()
         {
+            // [Improvement] 加入 Redis 快取（30 分鐘 TTL）：
+            // 原本每次請求都打一次 CWA RSS，多人同時使用時會產生大量外部 HTTP 請求。
+            // 天氣警報 30 分鐘更新一次已足夠精確，快取可大幅降低外部依賴。
+            const string cacheKey = "WeatherAlert_CWA";
+            var cached = await _produceService.GetCachedStringAsync(cacheKey);
+            if (cached != null)
+            {
+                return Content(cached, "application/json");
+            }
+
+            object alertResult;
             try
             {
                 using var client = new System.Net.Http.HttpClient();
@@ -653,32 +683,44 @@ namespace ProduceApi.Controllers
 
                     if (hasTyphoonWarning)
                     {
-                        return Ok(new {
+                        alertResult = new {
                             AlertType = "Typhoon",
                             Severity = "High",
                             Title = "⚠️ 颱風警報發布！",
                             Message = "根據中央氣象署資料，目前有颱風警報。預期葉菜類將有顯著漲幅，建議提早採買耐放蔬菜（如高麗菜、根莖類）！",
                             AffectedCrops = new[] { "高麗菜", "青江菜", "小白菜", "空心菜" }
-                        });
+                        };
                     }
                     else if (hasHeavyRainWarning)
                     {
-                        return Ok(new {
+                        alertResult = new {
                             AlertType = "HeavyRain",
                             Severity = "Medium",
                             Title = "🌧️ 豪大雨特報！",
                             Message = "根據中央氣象署資料，目前有豪大雨特報。瓜果類與葉菜類易受損，價格可能波動，請留意！",
                             AffectedCrops = new[] { "西瓜", "木瓜", "青江菜", "地瓜葉" }
-                        });
+                        };
                     }
+                    else
+                    {
+                        alertResult = new { AlertType = "None" };
+                    }
+                }
+                else
+                {
+                    alertResult = new { AlertType = "None" };
                 }
             }
             catch (System.Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch weather alerts from CWA RSS feed. Returning 'None'.");
+                alertResult = new { AlertType = "None" };
             }
-            
-            return Ok(new { AlertType = "None" });
+
+            // 序列化後存入 Redis 30 分鐘
+            var json = JsonSerializer.Serialize(alertResult, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            await _produceService.SetCachedStringAsync(cacheKey, json, System.TimeSpan.FromMinutes(30));
+            return Content(json, "application/json");
         }
 
         // 新增功能：「今天吃什麼？」省錢食譜推薦 (Budget Recipe Generator)
@@ -746,8 +788,13 @@ namespace ProduceApi.Controllers
 
             foreach (var drop in topDrops)
             {
-                // 尋找匹配的食譜 (模糊搜尋)
-                var matchedRecipe = allRecipes.FirstOrDefault(r => drop.CropName.Contains(r.MainIngredient));
+                // 尋找匹配的食譜 (雙向模糊搜尋)
+                // [Bug Fix] 原本只做 CropName.Contains(MainIngredient)：
+                //   "甘藍".Contains("高麗菜") → false（即使是同一種蔬菜，名稱不同即無法匹配）。
+                // 修正：增加反向判斷 MainIngredient.Contains(CropName)，提高匹配率。
+                var matchedRecipe = allRecipes.FirstOrDefault(r =>
+                    drop.CropName.Contains(r.MainIngredient, StringComparison.OrdinalIgnoreCase) ||
+                    r.MainIngredient.Contains(drop.CropName, StringComparison.OrdinalIgnoreCase));
                 
                 if (matchedRecipe != null)
                 {
@@ -824,6 +871,9 @@ namespace ProduceApi.Controllers
         // 邏輯修正：移除 UserId，因為已經改由 Header 傳遞
         public string ProduceId { get; set; }
         public double TargetPrice { get; set; }
+        // [Bug Fix] 新增 ProduceName 欄位：原本 AddFavorite 不儲存作物名稱，
+        // 導致 GetFavorites 回傳時 fav.ProduceName 永遠是 null → 顯示 "Unknown"。
+        public string ProduceName { get; set; } = string.Empty;
     }
 
     // PUT /api/produce/favorites/{produceId} 請求 Body
