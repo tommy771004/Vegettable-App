@@ -93,6 +93,16 @@ namespace ProduceApi.Models
         public int ReportCount { get; set; }
     }
 
+    // 市場比價 DTO (GET /api/produce/compare/{cropName})
+    // 對應 iOS MarketComparisonDto 與 Android MarketCompareDto
+    public class MarketCompareDto
+    {
+        public string MarketName { get; set; }
+        public double AvgPrice { get; set; }
+        public double TransQuantity { get; set; }
+        public string Date { get; set; }
+    }
+
     // 新增功能：價格異常警告 (Price Anomaly Detection)
     public class PriceAnomalyDto
     {
