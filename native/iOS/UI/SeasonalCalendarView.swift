@@ -14,6 +14,7 @@ struct SeasonalCrop: Identifiable {
 struct SeasonalCalendarView: View {
     @State private var seasonalCrops: [SeasonalCrop] = []
     @State private var isLoading = true
+    @State private var isOfflineMode = false
 
     // 根據當前月份自動判斷節氣
     private var currentSeason: String {
@@ -35,16 +36,21 @@ struct SeasonalCalendarView: View {
         }
     }
 
-    // 根據作物名稱自動對應 emoji
+    // 根據作物名稱自動對應 emoji（更具體的名稱需優先判斷）
     private func emojiFor(_ name: String) -> String {
-        if name.contains("瓜") { return "🍉" }
-        if name.contains("菜") || name.contains("菠") || name.contains("甘藍") { return "🥬" }
-        if name.contains("蘿蔔") || name.contains("胡蘿蔔") { return "🥕" }
-        if name.contains("茄") { return "🍆" }
-        if name.contains("番茄") { return "🍅" }
-        if name.contains("柑") || name.contains("桔") { return "🍊" }
+        if name.contains("番茄") { return "🍅" }          // 優先於「茄」
+        if name.contains("木瓜") { return "🥭" }          // 優先於「瓜」
+        if name.contains("南瓜") { return "🎃" }          // 優先於「瓜」
+        if name.contains("苦瓜") { return "🥒" }          // 優先於「瓜」
+        if name.contains("胡蘿蔔") { return "🥕" }        // 優先於「蘿蔔」
+        if name.contains("蘿蔔") { return "🥕" }
         if name.contains("葡萄") { return "🍇" }
-        if name.contains("木瓜") { return "🥭" }
+        if name.contains("柑") || name.contains("桔") { return "🍊" }
+        if name.contains("茄") { return "🍆" }
+        if name.contains("瓜") { return "🍉" }
+        if name.contains("菠") { return "🥬" }
+        if name.contains("甘藍") { return "🥬" }
+        if name.contains("菜") { return "🥬" }
         return "🌱"
     }
 
@@ -64,6 +70,16 @@ struct SeasonalCalendarView: View {
                 .background(Color.green.opacity(0.1))
                 .cornerRadius(12)
                 .padding(.horizontal)
+
+                if isOfflineMode {
+                    HStack {
+                        Image(systemName: "wifi.slash")
+                        Text("離線模式：顯示預設資料，可能非最新")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.orange)
+                    .padding(.horizontal)
+                }
 
                 if isLoading {
                     ProgressView("載入當季蔬果...")
@@ -112,7 +128,8 @@ struct SeasonalCalendarView: View {
                         )
                     }
                 case .failure:
-                    // API 失敗時使用預設資料
+                    // API 失敗時使用預設資料並標示離線模式
+                    self.isOfflineMode = true
                     self.seasonalCrops = [
                         SeasonalCrop(name: "高麗菜", emoji: "🥬", tips: "挑選葉片緊密、拿起來有重量感"),
                         SeasonalCrop(name: "白蘿蔔", emoji: "🥕", tips: "表皮光滑、輕敲有清脆聲"),

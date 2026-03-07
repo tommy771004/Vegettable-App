@@ -85,6 +85,10 @@ namespace ProduceApi.Controllers
         [HttpGet("daily-prices")]
         public async Task<IActionResult> GetDailyPrices([FromQuery] string keyword = "", [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
+            // Cap pageSize to prevent OOM from malicious large values
+            pageSize = System.Math.Clamp(pageSize, 1, 100);
+            page = System.Math.Max(1, page);
+
             try
             {
                 string rawData = await _produceService.FetchProduceDataAsync("ALL");
@@ -127,7 +131,8 @@ namespace ProduceApi.Controllers
             }
             catch (System.Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Unhandled exception in {Action}", ControllerContext.ActionDescriptor.ActionName);
+                return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
 
@@ -179,7 +184,8 @@ namespace ProduceApi.Controllers
             }
             catch (System.Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Unhandled exception in {Action}", ControllerContext.ActionDescriptor.ActionName);
+                return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
 
@@ -241,7 +247,8 @@ namespace ProduceApi.Controllers
             }
             catch (System.Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Unhandled exception in {Action}", ControllerContext.ActionDescriptor.ActionName);
+                return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
 
@@ -262,10 +269,15 @@ namespace ProduceApi.Controllers
             // [JWT 更新] 改從 JWT Claims 取得 UserId，比 X-User-Id Header 更安全
             // Claims 已由 JwtBearerMiddleware 驗證，無法被偽造
             var userId = GetCurrentUserId();
-            
+
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ProduceId) || request.TargetPrice <= 0)
+            {
+                return BadRequest(new { Message = "ProduceId is required and TargetPrice must be greater than 0." });
             }
 
             var existingFavorite = await _dbContext.UserFavorites
@@ -302,7 +314,7 @@ namespace ProduceApi.Controllers
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
             }
 
             var favorites = await _dbContext.UserFavorites
@@ -326,13 +338,15 @@ namespace ProduceApi.Controllers
                 double currentPrice = latestData?.AvgPrice ?? 0;
                 string produceName = latestData?.CropName ?? fav.ProduceName ?? "Unknown";
 
+                // Only trigger alert when we have actual market data (latestData != null)
+                bool alertTriggered = latestData != null && currentPrice > 0 && currentPrice <= fav.TargetPrice;
                 result.Add(new FavoriteAlertDto
                 {
                     ProduceId = fav.ProduceId,
                     ProduceName = produceName,
                     TargetPrice = fav.TargetPrice,
                     CurrentPrice = currentPrice,
-                    IsAlertTriggered = currentPrice > 0 && currentPrice <= fav.TargetPrice
+                    IsAlertTriggered = alertTriggered
                 });
             }
 
@@ -350,7 +364,7 @@ namespace ProduceApi.Controllers
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
             }
 
             var favorite = await _dbContext.UserFavorites
@@ -377,7 +391,12 @@ namespace ProduceApi.Controllers
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.CropName) || request.RetailPrice <= 0)
+            {
+                return BadRequest(new { Message = "CropName is required and RetailPrice must be greater than 0." });
             }
 
             var newPrice = new CommunityPrice
@@ -448,7 +467,7 @@ namespace ProduceApi.Controllers
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
             }
 
             var stats = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
@@ -672,7 +691,7 @@ namespace ProduceApi.Controllers
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { Message = "Missing X-User-Id header" });
+                return Unauthorized(new { Message = "Invalid or missing JWT token" });
             }
 
             var userStat = await _dbContext.UserStats.FirstOrDefaultAsync(u => u.UserId == userId);
