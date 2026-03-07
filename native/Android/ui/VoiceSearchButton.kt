@@ -1,8 +1,10 @@
 package com.example.produceapp.ui
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.speech.RecognizerIntent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -17,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +30,7 @@ fun VoiceSearchButton(
     onResult: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     // 處理語音辨識回傳的結果
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -42,13 +46,17 @@ fun VoiceSearchButton(
 
     Button(
         onClick = {
-            // 呼叫 Android 原生的語音辨識服務
+            // 明確指定繁體中文語系，確保辨識蔬菜名稱準確
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("zh", "TW").toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "請說出想查詢的蔬菜 (例如：高麗菜)")
             }
-            launcher.launch(intent)
+            try {
+                launcher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, "此裝置不支援語音辨識，請手動輸入", Toast.LENGTH_LONG).show()
+            }
         },
         modifier = modifier
             .fillMaxWidth()

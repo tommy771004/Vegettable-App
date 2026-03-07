@@ -1,5 +1,6 @@
 package com.example.produceapp.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -8,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -33,39 +35,49 @@ fun SettingsScreen() {
             SettingItem(
                 icon = Icons.Default.Notifications,
                 title = "推播通知設定",
-                subtitle = "管理價格異常與達標提醒"
+                subtitle = "管理價格異常與達標提醒",
+                onClick = { /* TODO: navigate to notification settings */ }
             )
             SettingItem(
                 icon = Icons.Default.Language,
                 title = "語言與語音",
-                subtitle = "切換印尼語/越南語及語音速度"
+                subtitle = "切換印尼語/越南語及語音速度",
+                onClick = { /* TODO: navigate to language settings */ }
             )
             SettingItem(
                 icon = Icons.Default.CloudSync,
                 title = "離線快取狀態",
-                subtitle = "上次同步時間: 剛剛"
+                subtitle = "上次同步時間: 剛剛",
+                onClick = { /* TODO: trigger cache refresh */ }
             )
             SettingItem(
                 icon = Icons.Default.Info,
                 title = "關於 App",
-                subtitle = "版本 1.0.0 (iOS 26 Liquid Glass Style)"
+                subtitle = "版本 1.0.0",
+                onClick = { /* TODO: navigate to about page */ }
             )
         }
     }
 }
 
 @Composable
-fun SettingItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+fun SettingItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .liquidGlass()
+            .clickable(role = Role.Button, onClickLabel = title, onClick = onClick)
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = title,
                 tint = Color(0xFF2E7D32),
                 modifier = Modifier.size(32.dp)
             )

@@ -557,6 +557,7 @@ namespace ProduceApi.Controllers
             try
             {
                 using var client = new System.Net.Http.HttpClient();
+                client.Timeout = System.TimeSpan.FromSeconds(5); // 避免外部 API 緩慢時阻塞請求
                 var response = await client.GetAsync("https://www.cwa.gov.tw/rss/Data/cwa_warning.xml");
                 if (response.IsSuccessStatusCode)
                 {
@@ -653,12 +654,17 @@ namespace ProduceApi.Controllers
                 
                 if (matchedRecipe != null)
                 {
+                    string[]? ingredients = null;
+                    string[]? steps = null;
+                    try { ingredients = JsonSerializer.Deserialize<string[]>(matchedRecipe.IngredientsJson ?? "[]"); } catch { }
+                    try { steps = JsonSerializer.Deserialize<string[]>(matchedRecipe.StepsJson ?? "[]"); } catch { }
+
                     recipes.Add(new {
                         RecipeName = matchedRecipe.RecipeName,
-                        MainIngredients = JsonSerializer.Deserialize<string[]>(matchedRecipe.IngredientsJson),
+                        MainIngredients = ingredients ?? System.Array.Empty<string>(),
                         Reason = $"今日 {drop.CropName} 價格大跌 {drop.IncreasePercentage}%，每公斤只要 {drop.CurrentPrice} 元！",
                         ImageUrl = matchedRecipe.ImageUrl,
-                        Steps = JsonSerializer.Deserialize<string[]>(matchedRecipe.StepsJson)
+                        Steps = steps ?? System.Array.Empty<string>()
                     });
                 }
             }
