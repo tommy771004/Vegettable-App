@@ -39,11 +39,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// 毛玻璃效果 Modifier (淡綠色底 + 半透明 + 細邊框)
-fun Modifier.liquidGlass() = this
-    .clip(RoundedCornerShape(16.dp))
-    .background(Color(0x40A5D6A7))
-    .border(1.dp, Color(0x60FFFFFF), RoundedCornerShape(16.dp))
+// liquidGlass() 已移至 Components.kt 集中管理（同 package 直接可用）
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

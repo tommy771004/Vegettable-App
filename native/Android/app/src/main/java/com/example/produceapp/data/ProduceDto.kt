@@ -7,9 +7,16 @@ data class ProduceDto(
     @SerializedName("cropName") val cropName: String,
     @SerializedName("avgPrice") val avgPrice: Double,
     @SerializedName("date") val date: String,
+    // [Bug Fix] 原本缺少 marketCode 欄位，導致後端回傳的 marketCode 被 Gson 靜默忽略。
+    // iOS ProduceDto 已有此欄位（用於建立穩定 id）。
+    // 加入 @SerializedName 確保與後端 JSON key 精確對應。
+    @SerializedName("marketCode") val marketCode: String = "",
     @SerializedName("marketName") val marketName: String,
     @SerializedName("transQuantity") val transQuantity: Double
-)
+) {
+    // 對應 iOS 的 id 計算邏輯，提供穩定的複合唯一識別碼
+    val stableId: String get() = "$cropCode-$marketCode-$date"
+}
 
 data class PaginatedResponse<T>(
     val currentPage: Int,

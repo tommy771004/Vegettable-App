@@ -37,6 +37,8 @@ protocol ProduceServiceProtocol {
     func deleteFavorite(produceId: String) async throws
     func updateFavoriteTargetPrice(produceId: String, targetPrice: Double) async throws
     func syncFavorite(produceId: String, targetPrice: Double, completion: @escaping (Bool) -> Void)
+    // [Bug Fix] searchCropPrice 補入 Protocol，確保 Mock 注入時也能覆寫此方法（可測試性）
+    func searchCropPrice(name: String) async throws -> Double
 }
 
 // MARK: - JWT Token Response
@@ -96,7 +98,18 @@ class ProduceService: ProduceServiceProtocol {
 
     /// 向後端 /auth/token 申請新的 JWT Token 並儲存
     private func refreshJwtToken() async {
-        let authURL = baseURL.replacingOccurrences(of: "/api/produce", with: "/auth/token")
+        // [Bug Fix] Config.plist 的 API_BASE_URL 結尾帶有 "/"
+        // (例："https://host/api/produce/")。
+        // 若直接 replacingOccurrences(of:"/api/produce", with:"/auth/token")，
+        // 結果為 "https://host/auth/token/" 仍帶有多餘斜線，
+        // 部分 ASP.NET Core 路由會回傳 404。
+        // 修正：先去除結尾斜線，再取主機根路徑，最後拼接 /auth/token。
+        let cleanBase = baseURL
+            .trimmingCharacters(in: .init(charactersIn: "/"))  // 去除頭尾斜線
+        let hostRoot = cleanBase
+            .components(separatedBy: "/api/")
+            .first ?? cleanBase                                  // 取 /api/ 之前的部分
+        let authURL = "\(hostRoot)/auth/token"
         guard let url = URL(string: authURL) else { return }
 
         var request = URLRequest(url: url)

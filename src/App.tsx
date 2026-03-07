@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
+  fetchDailyPrices,
+  fetchAnomalies,
+  fetchWeatherAlert,
+  submitCommunityReport,
+  isApiConfigured,
+  type PriceAnomalyItem,
+  type WeatherAlert,
+} from './api';
+import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 import {
@@ -226,9 +235,16 @@ function Toast({ message, isVisible, type = 'success' }: { message: string; isVi
 export default function App() {
   const [isElderlyMode, setIsElderlyMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // produceList: 優先使用後端資料，fallback 到 ALL_PRODUCE mock
+  const [produceList, setProduceList] = useState<ProduceItem[]>(ALL_PRODUCE);
   const [selectedProduce, setSelectedProduce] = useState<ProduceItem>(ALL_PRODUCE[0]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isApiLoading, setIsApiLoading] = useState(false);
+  // 天氣警報（後端即時資料）
+  const [weatherAlert, setWeatherAlert] = useState<WeatherAlert | null>(null);
+  // 價格異常（後端資料）
+  const [priceAnomalies, setPriceAnomalies] = useState<PriceAnomalyItem[]>([]);
 
   // Price alert state
   const [alertPrice, setAlertPrice] = useState('30');
@@ -246,10 +262,51 @@ export default function App() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const filteredProduce = searchQuery.trim()
-    ? ALL_PRODUCE.filter(p =>
+    ? produceList.filter(p =>
         p.name.includes(searchQuery) || p.market.includes(searchQuery) || p.category.includes(searchQuery)
       )
     : [];
+
+  // ── 後端資料載入（有設 VITE_API_URL 才執行）────────────────────────────────
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    setIsApiLoading(true);
+
+    Promise.allSettled([
+      fetchDailyPrices('', 1, 50),
+      fetchAnomalies(),
+      fetchWeatherAlert(),
+    ]).then(([pricesResult, anomaliesResult, weatherResult]) => {
+      // 批發價格列表
+      if (pricesResult.status === 'fulfilled' && pricesResult.value?.data?.length) {
+        const mapped: ProduceItem[] = pricesResult.value.data.map(p => ({
+          id: `${p.cropCode}-${p.marketCode}-${p.date}`,
+          name: p.cropName,
+          market: p.marketName,
+          price: p.avgPrice,
+          previousPrice: p.avgPrice,  // API 沒有前日價格，初始設為相同
+          unit: 'kg',
+          category: '批發',
+        }));
+        setProduceList(mapped);
+        setSelectedProduce(mapped[0]);
+      }
+
+      // 價格異常
+      if (anomaliesResult.status === 'fulfilled' && anomaliesResult.value) {
+        setPriceAnomalies(anomaliesResult.value);
+      }
+
+      // 天氣警報
+      if (weatherResult.status === 'fulfilled' && weatherResult.value) {
+        setWeatherAlert(weatherResult.value);
+        if (weatherResult.value.alertType !== 'None' && weatherResult.value.title) {
+          showToast(`🌧 ${weatherResult.value.title}`, 'warning');
+        }
+      }
+    }).finally(() => setIsApiLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -376,8 +433,8 @@ export default function App() {
     }
   }, [alertPrice, alerts, selectedProduce, showToast]);
 
-  // --- Submit community report ---
-  const handleReportSubmit = useCallback((report: { market: string; price: number; cropName: string; type: '零售' | '批發' }) => {
+  // --- Submit community report (有 API 時同步上傳後端) ---
+  const handleReportSubmit = useCallback(async (report: { market: string; price: number; cropName: string; type: '零售' | '批發' }) => {
     const newReport: CommunityReport = {
       id: Date.now(),
       market: report.market,
@@ -388,7 +445,18 @@ export default function App() {
       cropName: report.cropName,
     };
     setCommunityReports(prev => [newReport, ...prev]);
-    showToast('感謝您的回報！已獲得 +5 貢獻積分', 'success');
+
+    if (isApiConfigured()) {
+      const ok = await submitCommunityReport({
+        cropCode: '',
+        cropName: report.cropName,
+        marketName: report.market,
+        retailPrice: report.price,
+      });
+      showToast(ok ? '感謝您的回報！已獲得 +5 貢獻積分 🎉' : '感謝您的回報！（離線模式）', 'success');
+    } else {
+      showToast('感謝您的回報！已獲得 +5 貢獻積分', 'success');
+    }
   }, [showToast]);
 
   // --- Select produce from search ---
@@ -542,6 +610,52 @@ export default function App() {
             </motion.div>
           )}
         </div>
+
+        {/* API 載入中指示條 */}
+        {isApiLoading && (
+          <div className="w-full h-1 rounded-full overflow-hidden bg-emerald-100">
+            <div className="h-full bg-emerald-500 animate-pulse rounded-full" style={{ width: '60%' }} />
+          </div>
+        )}
+
+        {/* 天氣/颱風警報（後端即時資料） */}
+        {weatherAlert && weatherAlert.alertType !== 'None' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className={`rounded-2xl ${isElderlyMode ? 'bg-sky-100 border-4 border-sky-600 p-5' : 'bg-sky-50 border border-sky-200 p-3'}`}
+          >
+            <div className={`flex items-center gap-2 font-bold ${isElderlyMode ? 'text-xl text-sky-800' : 'text-sm text-sky-700'}`}>
+              <CloudRain className={isElderlyMode ? 'w-7 h-7' : 'w-4 h-4'} />
+              {weatherAlert.title ?? '天氣警報'}
+            </div>
+            {weatherAlert.message && (
+              <p className={`mt-2 ${isElderlyMode ? 'text-lg' : 'text-sm'} text-sky-800`}>{weatherAlert.message}</p>
+            )}
+            {weatherAlert.affectedCrops && weatherAlert.affectedCrops.length > 0 && (
+              <p className={`mt-1 ${isElderlyMode ? 'text-base' : 'text-xs'} text-sky-600`}>
+                受影響農產品：{weatherAlert.affectedCrops.join('、')}
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {/* 價格異常警告（後端即時偵測） */}
+        {priceAnomalies.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className={`rounded-2xl ${isElderlyMode ? 'bg-red-50 border-4 border-red-500 p-5' : 'bg-red-50 border border-red-200 p-3'}`}
+          >
+            <div className={`flex items-center gap-2 font-bold ${isElderlyMode ? 'text-xl text-red-700' : 'text-sm text-red-700'}`}>
+              <AlertCircle className={isElderlyMode ? 'w-7 h-7' : 'w-4 h-4'} />
+              價格異常警告
+            </div>
+            {priceAnomalies.slice(0, 3).map((a, i) => (
+              <div key={i} className={`mt-1 ${isElderlyMode ? 'text-lg' : 'text-xs'} text-red-700`}>{a.alertMessage}</div>
+            ))}
+          </motion.div>
+        )}
 
         {/* Active Alerts Banner */}
         {alerts.some(a => a.isTriggered) && (

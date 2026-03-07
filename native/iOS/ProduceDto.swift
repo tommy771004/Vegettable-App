@@ -40,8 +40,11 @@ struct PaginatedResponse<T: Codable>: Codable {
 /// 注意：此為「唯一」定義，ProduceViewModel.swift 中的重複定義已移除
 ///      以避免 Swift 編譯器 "redefinition of struct" 錯誤
 struct FavoriteAlertDto: Codable, Identifiable {
-    // Identifiable 所需的唯一 id，使用 UUID 自動生成，不需要從後端傳遞
-    var id: UUID { UUID() }
+    // [Bug Fix] 原本使用 var id: UUID { UUID() }（computed），
+    // 導致每次 SwiftUI 存取 id 都產生不同的 UUID，
+    // 造成 ForEach 無法穩定辨識身份而觸發不必要的 view 重建。
+    // 修正：直接使用後端已有的 produceId 作為穩定識別碼。
+    var id: String { produceId }
 
     let produceId: String       // 農產品代碼 (與 UserFavorite.ProduceId 對應)
     let produceName: String     // 農產品名稱
