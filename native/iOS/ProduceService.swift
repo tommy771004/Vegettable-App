@@ -463,6 +463,14 @@ class ProduceService: ProduceServiceProtocol {
         }.resume()
     }
 
+    /// 依農產品名稱查詢今日批發均價（供智慧買菜清單自動估價使用）
+    /// - Parameter name: 農產品名稱（例："番茄"）
+    /// - Returns: 當日均價（元/公斤），查無資料時回傳 0.0
+    func searchCropPrice(name: String) async throws -> Double {
+        let result = try await getDailyPrices(keyword: name, page: 1, pageSize: 1)
+        return result.data.first?.avgPrice ?? 0.0
+    }
+
     /// async/await 版本：取得使用者統計
     func getUserStats() async throws -> UserStatsDto {
         try await withCheckedThrowingContinuation { continuation in
