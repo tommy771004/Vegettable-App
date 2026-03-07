@@ -2,6 +2,7 @@ package com.example.produceapp.network
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.produceapp.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -41,11 +42,11 @@ import java.util.UUID
  */
 object RetrofitClient {
 
-    /** 後端 API Base URL */
-    private const val BASE_URL = "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce/"
+    /** 後端 API Base URL（從 build.gradle BuildConfig 讀取，不硬編碼） */
+    private val BASE_URL = BuildConfig.API_BASE_URL
 
-    /** JWT 認證端點 (與 BASE_URL 在同一主機，不同路徑) */
-    private const val AUTH_URL = "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/auth/token"
+    /** JWT 認證端點：從 BASE_URL 推導主機，替換路徑 */
+    private val AUTH_URL = BASE_URL.substringBefore("/api/") + "/auth/token"
 
     /** SharedPreferences 鍵名常數 */
     private const val PREF_NAME    = "vegettable_prefs"

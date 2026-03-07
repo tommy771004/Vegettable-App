@@ -28,30 +28,45 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // 取得 FCM Token
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         print("Firebase registration token: \(String(describing: fcmToken))")
-        
+
         guard let token = fcmToken else { return }
-        
-        // 將 Token 送回您的後端伺服器
-        guard let url = URL(string: "https://ais-dev-gyv3my74fwisdg5piudwph-424197195798.asia-east1.run.app/api/produce/fcm-token") else { return }
+
+        // 讀取 JWT（由 ProduceService 存入 UserDefaults）
+        let jwt = UserDefaults.standard.string(forKey: "jwt_token")
+
+        if let jwt = jwt {
+            sendFcmTokenToBackend(token, jwt: jwt)
+        } else {
+            // 尚無 JWT（首次冷啟動）→ 先取得 JWT 再重試
+            Task {
+                await ProduceService.shared.ensureJwtToken()
+                if let jwt = UserDefaults.standard.string(forKey: "jwt_token") {
+                    sendFcmTokenToBackend(token, jwt: jwt)
+                }
+            }
+        }
+    }
+
+    private func sendFcmTokenToBackend(_ fcmToken: String, jwt: String) {
+        // 從 Configuration 讀取 API URL（統一設定，不硬編碼）
+        let endpoint = Configuration.apiBaseUrl + "fcm-token"
+        guard let url = URL(string: endpoint) else { return }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Get device ID
-        let deviceId = UserDefaults.standard.string(forKey: "device_uuid") ?? UUID().uuidString
-        UserDefaults.standard.set(deviceId, forKey: "device_uuid")
-        request.setValue(deviceId, forHTTPHeaderField: "X-User-Id")
-        
-        let body: [String: String] = ["token": token]
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+
+        let body: [String: String] = ["token": fcmToken]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
             if let error = error {
                 print("Failed to send FCM token to backend: \(error.localizedDescription)")
                 return
             }
             if let httpResponse = response as? HTTPURLResponse {
-                print("Successfully sent FCM token to backend. Response code: \(httpResponse.statusCode)")
+                print("FCM token sent. Response code: \(httpResponse.statusCode)")
             }
         }.resume()
     }

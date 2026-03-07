@@ -76,8 +76,12 @@ builder.Services.AddHostedService<ProduceApi.PriceAlertWorker>();
 //   3. Middleware: 自動驗證簽章、有效期、Issuer/Audience
 //   4. Controller: User.FindFirst(ClaimTypes.NameIdentifier)?.Value 取得 UserId
 var jwtSection = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSection["SecretKey"]
-    ?? throw new InvalidOperationException("JWT SecretKey is not configured in appsettings.json.");
+var secretKey = jwtSection["SecretKey"];
+if (string.IsNullOrWhiteSpace(secretKey))
+    throw new InvalidOperationException(
+        "JWT SecretKey is not configured. " +
+        "Set the 'Jwt__SecretKey' environment variable in production, " +
+        "or add it to appsettings.Development.json for local development.");
 
 builder.Services.AddAuthentication(options =>
 {
