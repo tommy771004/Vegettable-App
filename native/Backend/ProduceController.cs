@@ -52,14 +52,16 @@ namespace ProduceApi.Controllers
     {
         private readonly ProduceService _produceService;
         private readonly ProduceDbContext _dbContext;
+        private readonly ILogger<ProduceController> _logger;
 
         /// <summary>
         /// 建構子：DI 注入農產品服務與資料庫 Context
         /// </summary>
-        public ProduceController(ProduceService produceService, ProduceDbContext dbContext)
+        public ProduceController(ProduceService produceService, ProduceDbContext dbContext, ILogger<ProduceController> logger)
         {
             _produceService = produceService;
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         /// <summary>
@@ -565,9 +567,9 @@ namespace ProduceApi.Controllers
                     }
                 }
             }
-            catch (System.Exception)
+            catch (System.Exception ex)
             {
-                // Fallback to none if API fails
+                _logger.LogWarning(ex, "Failed to fetch weather alerts from CWA RSS feed. Returning 'None'.");
             }
             
             return Ok(new { AlertType = "None" });

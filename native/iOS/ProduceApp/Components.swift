@@ -1,16 +1,29 @@
 import SwiftUI
 
 struct SkeletonView: View {
-    @State private var blink = false
-    
+    @State private var shimmerPhase: CGFloat = -1.0
+
     var body: some View {
-        Color.gray.opacity(0.3)
-            .cornerRadius(8)
-            .opacity(blink ? 0.3 : 1.0)
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: blink)
-            .onAppear {
-                blink.toggle()
+        GeometryReader { geo in
+            Color.gray.opacity(0.15)
+                .overlay(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: .clear,                          location: 0.0),
+                            .init(color: .white.opacity(0.5),             location: 0.4),
+                            .init(color: .clear,                          location: 0.8)
+                        ]),
+                        startPoint: .init(x: shimmerPhase - 0.3, y: 0),
+                        endPoint:   .init(x: shimmerPhase,        y: 0)
+                    )
+                )
+        }
+        .cornerRadius(8)
+        .onAppear {
+            withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                shimmerPhase = 1.3
             }
+        }
     }
 }
 

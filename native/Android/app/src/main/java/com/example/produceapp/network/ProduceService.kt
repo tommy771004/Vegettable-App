@@ -108,4 +108,18 @@ interface ProduceService {
      */
     @GET("seasonal")
     suspend fun getSeasonalCrops(): List<SeasonalCropDto>
+
+    /**
+     * 取得颱風/豪大雨預警（後端即時抓取中央氣象署 RSS）
+     * 對應後端：GET /api/produce/weather-alerts
+     */
+    @GET("weather-alerts")
+    suspend fun getWeatherAlerts(): WeatherAlertDto
+
+    /**
+     * 取得今日省錢食譜推薦（根據今日跌幅最大農產品配對）
+     * 對應後端：GET /api/produce/budget-recipes
+     */
+    @GET("budget-recipes")
+    suspend fun getBudgetRecipes(): List<BudgetRecipeDto>
 }

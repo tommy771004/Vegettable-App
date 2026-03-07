@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -59,7 +61,10 @@ fun PriceTrendChart(
             }
         }
 
-        Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+        Canvas(
+        modifier = Modifier.fillMaxWidth().height(150.dp)
+            .semantics { contentDescription = "農產品價格趨勢折線圖，包含歷史價格（綠色實線）與預測價格（橘色虛線）" }
+    ) {
             val maxPrice = (historical.maxOfOrNull { it.avgPrice } ?: 0f).coerceAtLeast(
                 predicted.maxOfOrNull { it.predictedPrice } ?: 0f
             ) * 1.2f // 留點頂部空間
