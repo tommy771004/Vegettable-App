@@ -241,11 +241,12 @@ namespace ProduceApi.Controllers
             if (recent7DaysAvg > previous7DaysAvg * 1.05) trend = "Up";
             else if (recent7DaysAvg < previous7DaysAvg * 0.95) trend = "Down";
 
-            return Ok(new { 
-                RecentAverage = recent7DaysAvg,
-                PreviousAverage = previous7DaysAvg,
-                Trend = trend,
-                Message = $"Recent 7-day avg is {recent7DaysAvg:F2}, previous 7-day avg was {previous7DaysAvg:F2}."
+            string trendText = trend == "Up" ? "上漲" : trend == "Down" ? "下跌" : "穩定";
+            return Ok(new {
+                recentAverage = recent7DaysAvg,
+                previousAverage = previous7DaysAvg,
+                trend = trend,
+                message = $"近 7 日均價 {recent7DaysAvg:F1} 元，前 7 日均價 {previous7DaysAvg:F1} 元，價格趨勢{trendText}。"
             });
         }
 
@@ -591,11 +592,23 @@ namespace ProduceApi.Controllers
             var today = latestDates[0];
             var yesterday = latestDates[1];
 
-            var todayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == today).ToDictionaryAsync(p => p.ProduceId);
-            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
+            // [Bug Fix] 原本使用 ToDictionaryAsync(p => p.ProduceId)，但同一作物在多個市場都有記錄，
+            // ProduceId (CropCode) 重複 → 拋出 ArgumentException: An item with the same key has already been added。
+            // 修正：先 GroupBy ProduceId，計算各作物的全台平均價格，再建立唯一 Dictionary。
+            var todayPrices = await _dbContext.PriceHistories
+                .Where(p => p.RecordDate.Date == today)
+                .GroupBy(p => p.ProduceId)
+                .Select(g => new { ProduceId = g.Key, ProduceName = g.First().ProduceName, AveragePrice = g.Average(p => p.AveragePrice) })
+                .ToListAsync();
+
+            var yesterdayPrices = await _dbContext.PriceHistories
+                .Where(p => p.RecordDate.Date == yesterday)
+                .GroupBy(p => p.ProduceId)
+                .Select(g => new { ProduceId = g.Key, AveragePrice = g.Average(p => p.AveragePrice) })
+                .ToDictionaryAsync(g => g.ProduceId);
 
             var anomalies = new List<PriceAnomalyDto>();
-            foreach (var tp in todayPrices.Values)
+            foreach (var tp in todayPrices)
             {
                 if (yesterdayPrices.TryGetValue(tp.ProduceId, out var yp))
                 {
@@ -603,7 +616,7 @@ namespace ProduceApi.Controllers
                     {
                         var increase = (tp.AveragePrice - yp.AveragePrice) / yp.AveragePrice;
                         // 如果單日漲幅超過 50% (0.5)，則視為價格異常暴漲
-                        if (increase >= 0.5) 
+                        if (increase >= 0.5)
                         {
                             anomalies.Add(new PriceAnomalyDto
                             {
@@ -688,18 +701,29 @@ namespace ProduceApi.Controllers
             var today = latestDates[0];
             var yesterday = latestDates[1];
 
-            var todayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == today).ToDictionaryAsync(p => p.ProduceId);
-            var yesterdayPrices = await _dbContext.PriceHistories.Where(p => p.RecordDate.Date == yesterday).ToDictionaryAsync(p => p.ProduceId);
+            // [Bug Fix] 同 GetPriceAnomalies：ToDictionaryAsync 在多市場同一作物時拋出 ArgumentException。
+            // 修正：GroupBy ProduceId，計算全台平均價格後建立唯一 Dictionary。
+            var todayPrices = await _dbContext.PriceHistories
+                .Where(p => p.RecordDate.Date == today)
+                .GroupBy(p => p.ProduceId)
+                .Select(g => new { ProduceId = g.Key, ProduceName = g.First().ProduceName, AveragePrice = g.Average(p => p.AveragePrice) })
+                .ToListAsync();
+
+            var yesterdayPrices = await _dbContext.PriceHistories
+                .Where(p => p.RecordDate.Date == yesterday)
+                .GroupBy(p => p.ProduceId)
+                .Select(g => new { ProduceId = g.Key, AveragePrice = g.Average(p => p.AveragePrice) })
+                .ToDictionaryAsync(g => g.ProduceId);
 
             var priceDrops = new List<PriceAnomalyDto>();
-            foreach (var tp in todayPrices.Values)
+            foreach (var tp in todayPrices)
             {
                 if (yesterdayPrices.TryGetValue(tp.ProduceId, out var yp))
                 {
                     if (yp.AveragePrice > 0)
                     {
                         var decrease = (yp.AveragePrice - tp.AveragePrice) / yp.AveragePrice;
-                        if (decrease > 0) 
+                        if (decrease > 0)
                         {
                             priceDrops.Add(new PriceAnomalyDto
                             {
