@@ -2,8 +2,10 @@ import SwiftUI
 import UIKit
 
 struct FavoritesScreen: View {
-    @StateObject private var viewModel = ProduceViewModel()
+    // 由 MainTabView 透過 environmentObject 注入，與 HomeScreen 共享同一份資料
+    @EnvironmentObject var viewModel: ProduceViewModel
     private let hapticFeedback = UINotificationFeedbackGenerator()
+    @State private var addedToListName: String? = nil
     
     var body: some View {
         NavigationView {
@@ -89,10 +91,12 @@ struct FavoritesScreen: View {
                                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                         Button {
                                             hapticFeedback.notificationOccurred(.success)
-                                            // 加入購物清單（可擴充至 SmartGroceryList 儲存邏輯）
+                                            // 複製名稱到剪貼板，方便在買菜清單手動貼上
+                                            // TODO: 未來改為直接寫入 SmartGroceryList 持久化儲存
                                             UIPasteboard.general.string = item.cropName
+                                            addedToListName = item.cropName
                                         } label: {
-                                            Label("加入清單", systemImage: "cart.badge.plus")
+                                            Label("複製名稱", systemImage: "cart.badge.plus")
                                         }
                                         .tint(Color(hex: "4CAF50"))
                                     }
@@ -107,6 +111,25 @@ struct FavoritesScreen: View {
             .refreshable {
                 await viewModel.fetchDashboardData()
             }
+            .overlay(alignment: .bottom) {
+                if let name = addedToListName {
+                    Text("「\(name)」已複製，可貼入買菜清單")
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color(hex: "2E7D32").opacity(0.9))
+                        .foregroundColor(.white)
+                        .cornerRadius(20)
+                        .padding(.bottom, 24)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                withAnimation { addedToListName = nil }
+                            }
+                        }
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: addedToListName)
         }
     }
 }
