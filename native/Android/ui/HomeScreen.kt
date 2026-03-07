@@ -8,13 +8,18 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +51,9 @@ fun HomeScreen(
     val dailyPricesState by viewModel.dailyPrices.collectAsState()
     val historicalDataState by viewModel.historicalData.collectAsState()
     val predictedDataState by viewModel.predictedData.collectAsState()
+
+    // 搜尋關鍵字狀態：同時支援語音輸入與文字輸入
+    var searchKeyword by remember { mutableStateOf("") }
 
     val bgBrush = Brush.linearGradient(
         colors = listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9))
@@ -119,18 +127,50 @@ fun HomeScreen(
                     }
                 }
 
-                // 3. 🎤 長輩語音搜尋按鈕
+                // 3. 🎤 長輩語音搜尋按鈕（結果直接填入搜尋欄）
                 item {
                     VoiceSearchButton(
                         onResult = { keyword ->
-                            // 語音搜尋結果可進一步處理（例如：自動搜尋該農產品）
+                            searchKeyword = keyword
                         },
                         modifier = Modifier
                     )
                 }
 
+                // 3.5. 🔍 文字搜尋欄（與語音搜尋共享同一關鍵字狀態）
+                item {
+                    OutlinedTextField(
+                        value = searchKeyword,
+                        onValueChange = { searchKeyword = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("搜尋農產品名稱...") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = "搜尋", tint = Color(0xFF4CAF50))
+                        },
+                        trailingIcon = {
+                            if (searchKeyword.isNotEmpty()) {
+                                IconButton(onClick = { searchKeyword = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "清除搜尋")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF4CAF50),
+                            unfocusedBorderColor = Color(0xFFA5D6A7)
+                        )
+                    )
+                }
+
                 // 4. 📋 今日菜價列表
-                item { Text("📋 今日菜價", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32)) }
+                item {
+                    if (searchKeyword.isBlank()) {
+                        Text("📋 今日菜價", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                    } else {
+                        Text("🔍 搜尋結果：「$searchKeyword」", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                    }
+                }
 
                 when (dailyPricesState) {
                     is Resource.Loading -> {
@@ -147,9 +187,17 @@ fun HomeScreen(
                         }
                     }
                     is Resource.Success -> {
-                        val dailyPrices = (dailyPricesState as Resource.Success).data ?: emptyList()
+                        val allPrices = (dailyPricesState as Resource.Success).data ?: emptyList()
+                        // 依搜尋關鍵字過濾，空字串則顯示全部
+                        val dailyPrices = if (searchKeyword.isBlank()) allPrices
+                            else allPrices.filter { it.cropName.contains(searchKeyword, ignoreCase = true) }
                         if (dailyPrices.isEmpty()) {
-                            item { EmptyStateView(message = "今日暫無菜價資料", icon = Icons.Default.ShoppingCart) }
+                            item {
+                                if (searchKeyword.isNotBlank())
+                                    EmptyStateView(message = "找不到「$searchKeyword」的菜價資料", icon = Icons.Default.Search)
+                                else
+                                    EmptyStateView(message = "今日暫無菜價資料", icon = Icons.Default.ShoppingCart)
+                            }
                         } else {
                             items(dailyPrices) { produce ->
                                 val isHighlighted = produce.produceId == highlightedProduceId

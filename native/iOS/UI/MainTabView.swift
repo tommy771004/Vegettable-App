@@ -82,9 +82,87 @@ struct ExploreMenuView: View {
                 } header: {
                     Text("進階功能")
                 }
+
+                // 我的貢獻：顯示使用者點數、等級與升級進度
+                Section {
+                    UserStatsCard()
+                } header: {
+                    Text("我的貢獻")
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("探索")
+        }
+    }
+}
+
+// MARK: - 使用者貢獻統計卡片
+/// 呼叫 /user-stats 顯示使用者的累積點數、等級標籤與升級進度條
+struct UserStatsCard: View {
+    @State private var stats: UserStatsDto? = nil
+    @State private var isLoading = true
+    @State private var loadError: String? = nil
+
+    var body: some View {
+        Group {
+            if isLoading {
+                HStack {
+                    ProgressView()
+                    Text("載入中...")
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 8)
+                }
+                .padding(.vertical, 8)
+            } else if let error = loadError {
+                Text("無法載入：\(error)")
+                    .foregroundColor(.red)
+                    .font(.caption)
+            } else if let stats = stats {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(levelEmoji(stats.level))
+                                    .font(.title2)
+                                Text(stats.level)
+                                    .font(.headline)
+                                    .foregroundColor(Color(hex: "1B5E20"))
+                            }
+                            Text("貢獻點數：\(stats.contributionPoints) 分")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                            Text("已回報 \(stats.reportCount) 次物價")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    // 升級進度條（每 100 點升一階）
+                    let progress = Double(stats.contributionPoints % 100)
+                    ProgressView(value: progress, total: 100)
+                        .tint(Color(hex: "4CAF50"))
+                    Text("距離下一等級還差 \(100 - Int(progress)) 點")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .padding(.vertical, 8)
+            }
+        }
+        .task {
+            do {
+                stats = try await ProduceService.shared.getUserStats()
+            } catch {
+                loadError = error.localizedDescription
+            }
+            isLoading = false
+        }
+    }
+
+    private func levelEmoji(_ level: String) -> String {
+        switch level {
+        case "市場達人": return "🏆"
+        case "精打細算": return "⭐"
+        default:        return "🌱"
         }
     }
 }

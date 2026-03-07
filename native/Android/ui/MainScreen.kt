@@ -17,7 +17,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import android.Manifest
 import android.content.Intent
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.example.produceapp.util.TextToSpeechHelper
 
@@ -36,7 +41,18 @@ fun MainScreen(
 ) {
     var currentTab by remember { mutableStateOf(BottomTab.HOME) }
     val context = LocalContext.current
-    
+
+    // Android 13 (TIRAMISU) 以上需要主動申請通知權限
+    // 在 App 第一次啟動時提示使用者，讓 FCM 價格提醒能正常運作
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val notifPermLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { /* 使用者允許或拒絕通知權限的回調，不需額外處理 */ }
+        LaunchedEffect(Unit) {
+            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     // 全站漸層底色 (iOS 26 Liquid Glass 風格)
     val bgBrush = Brush.linearGradient(
         colors = listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9))
