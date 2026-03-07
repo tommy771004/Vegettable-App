@@ -98,3 +98,9 @@ data class MarketCompareDto(
     @SerializedName("transQuantity") val transQuantity: Double,
     @SerializedName("date") val date: String
 )
+
+// 新增/更新收藏 DTO (POST /api/produce/favorites)
+data class AddFavoriteDto(
+    @SerializedName("produceId") val produceId: String,
+    @SerializedName("targetPrice") val targetPrice: Double
+)
