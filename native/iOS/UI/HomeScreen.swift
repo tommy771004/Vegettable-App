@@ -249,7 +249,10 @@ struct HomeScreen: View {
 }
 
 // MARK: - 加入收藏 Sheet
-private struct AddFavoriteSheet: View {
+// [Bug Fix] 原本為 private，導致 CropDetailScreen.swift 無法存取，
+// 造成 Swift 編譯器 "cannot find type 'AddFavoriteSheet' in scope" 錯誤。
+// 移除 private 改為 internal（Swift 預設可見性），讓同 Module 所有檔案可使用。
+struct AddFavoriteSheet: View {
     let produce: ProduceDto
     @Binding var targetPriceInput: String
     let onConfirm: (Double) -> Void
