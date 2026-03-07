@@ -1,15 +1,51 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Collections.Generic;
+using System.Security.Claims;
 using ProduceApi.Services;
 using ProduceApi.Data;
 using ProduceApi.Models;
 using System.Text.Json;
 
+// =============================================================================
+// ProduceController.cs — 農產品 API 控制器 (13 個端點)
+//
+// API 端點清單：
+//   GET  /api/produce/daily-prices      - 今日批發價格 (分頁 + 搜尋)
+//   GET  /api/produce/history/{id}      - 歷史 30 天價格紀錄
+//   GET  /api/produce/compare/{name}    - 各市場比價排行
+//   GET  /api/produce/forecast/{id}     - 7 日移動平均線趨勢預測
+//   GET  /api/produce/top-volume        - 今日交易量前 10 名
+//   POST /api/produce/favorites         - 新增/更新我的收藏
+//   GET  /api/produce/favorites         - 取得我的收藏清單
+//   DELETE /api/produce/favorites/{id}  - 移除收藏
+//   POST /api/produce/community-price   - 社群零售價回報
+//   GET  /api/produce/community-price/{code} - 查詢社群回報記錄
+//   GET  /api/produce/user-stats        - 取得使用者積分與等級
+//   GET  /api/produce/seasonal          - 當季盛產農作物
+//   GET  /api/produce/anomalies         - 價格異常警告
+//   GET  /api/produce/weather-alerts    - 颱風/豪大雨預警
+//   GET  /api/produce/budget-recipes    - 今日省錢食譜推薦
+//   POST /api/produce/fcm-token         - 更新裝置 FCM 推播 Token
+//
+// 認證方式 (本次更新)：
+//   原本：X-User-Id Header (任何人可偽造)
+//   現在：JWT Bearer Token (由 /auth/token 發行，HMAC-SHA256 簽章防止偽造)
+//
+//   取得 UserId 方式：
+//     舊：Request.Headers["X-User-Id"].FirstOrDefault()
+//     新：User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+// =============================================================================
+
 namespace ProduceApi.Controllers
 {
+    /// <summary>
+    /// 農產品 API 控制器
+    /// 需要 JWT 認證 ([Authorize])，透過 Authorization: Bearer {token} Header 驗證身份
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ProduceController : ControllerBase
@@ -17,14 +53,33 @@ namespace ProduceApi.Controllers
         private readonly ProduceService _produceService;
         private readonly ProduceDbContext _dbContext;
 
+        /// <summary>
+        /// 建構子：DI 注入農產品服務與資料庫 Context
+        /// </summary>
         public ProduceController(ProduceService produceService, ProduceDbContext dbContext)
         {
             _produceService = produceService;
             _dbContext = dbContext;
         }
 
-        // 邏輯修正：加入分頁 (Pagination) 與關鍵字搜尋 (Search)
-        // 解決問題：原本一次回傳 2000+ 筆資料會導致手機 App 記憶體爆掉 (OOM) 且載入極慢。
+        /// <summary>
+        /// 從已驗證的 JWT Token 中取得使用者 ID
+        /// 若 Token 無效或未帶 Token，此方法返回 null
+        /// </summary>
+        private string? GetCurrentUserId()
+            => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 公開端點 (不需要 JWT，任何人可存取)
+        // ─────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 取得今日農產品批發價格 (支援分頁與關鍵字搜尋)
+        /// GET /api/produce/daily-prices?keyword=番茄&amp;page=1&amp;pageSize=20
+        ///
+        /// 為何加入分頁：原本一次回傳 2000+ 筆資料，手機 App 會因 OOM 崩潰且載入極慢。
+        /// 分頁後每次只傳 20 筆，記憶體使用量減少 99%。
+        /// </summary>
         [HttpGet("daily-prices")]
         public async Task<IActionResult> GetDailyPrices([FromQuery] string keyword = "", [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
@@ -74,6 +129,10 @@ namespace ProduceApi.Controllers
             }
         }
 
+        /// <summary>
+        /// 取得指定農產品的歷史 30 天均價記錄 (供折線圖使用)
+        /// GET /api/produce/history/{produceId}
+        /// </summary>
         [HttpGet("history/{produceId}")]
         public async Task<IActionResult> GetPriceHistory(string produceId)
         {
@@ -86,8 +145,11 @@ namespace ProduceApi.Controllers
             return Ok(history);
         }
 
-        // 新增功能：市場比價 (Market Comparison)
-        // 允許使用者查詢特定農產品在全台各市場的今日價格，並由低到高排序
+        /// <summary>
+        /// 市場比價：查詢指定農產品在各市場的今日價格，由低到高排序
+        /// GET /api/produce/compare/{cropName}
+        /// 幫助使用者找到最便宜的購買地點
+        /// </summary>
         [HttpGet("compare/{cropName}")]
         public async Task<IActionResult> GetMarketComparison(string cropName)
         {
@@ -181,12 +243,23 @@ namespace ProduceApi.Controllers
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // 需要登入的端點 ([Authorize] → 必須帶 JWT Token)
+        // ─────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 新增或更新我的收藏 (若已收藏則更新目標價格)
+        /// POST /api/produce/favorites
+        /// Body: { "produceId": "LA1", "targetPrice": 30.0 }
+        /// 需要 JWT 認證：UserId 從 Token Claims 讀取，防止偽造
+        /// </summary>
+        [Authorize]
         [HttpPost("favorites")]
         public async Task<IActionResult> AddFavorite([FromBody] FavoriteRequest request)
         {
-            // 邏輯修正：從 Header 中讀取 X-User-Id，而不是依賴前端在 Body 傳遞。
-            // 解決問題：這樣可以防止惡意使用者竄改 Body 中的 UserId 去修改別人的收藏。
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            // [JWT 更新] 改從 JWT Claims 取得 UserId，比 X-User-Id Header 更安全
+            // Claims 已由 JwtBearerMiddleware 驗證，無法被偽造
+            var userId = GetCurrentUserId();
             
             if (string.IsNullOrEmpty(userId))
             {
@@ -215,12 +288,16 @@ namespace ProduceApi.Controllers
             return Ok(new { Message = "Favorite synced successfully" });
         }
 
-        // 新增功能：我的收藏與價格提醒 (My Favorites & Price Alerts)
-        // 取得使用者的收藏清單，並比對今日最新價格，判斷是否達到目標價格 (觸發提醒)
+        /// <summary>
+        /// 取得我的收藏清單，並即時比對今日均價判斷是否達到目標提醒價
+        /// GET /api/produce/favorites
+        /// 回傳 FavoriteAlertDto 列表，包含 isAlertTriggered 欄位
+        /// </summary>
+        [Authorize]
         [HttpGet("favorites")]
         public async Task<IActionResult> GetFavorites()
         {
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { Message = "Missing X-User-Id header" });
@@ -260,10 +337,15 @@ namespace ProduceApi.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// 移除收藏
+        /// DELETE /api/produce/favorites/{produceId}
+        /// </summary>
+        [Authorize]
         [HttpDelete("favorites/{produceId}")]
         public async Task<IActionResult> RemoveFavorite(string produceId)
         {
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { Message = "Missing X-User-Id header" });
@@ -281,11 +363,16 @@ namespace ProduceApi.Controllers
             return Ok(new { Message = "Favorite removed successfully" });
         }
 
-        // 新增功能：社群回報機制 (Community Retail Price)
+        /// <summary>
+        /// 社群零售價回報：使用者回報在超市/傳統市場看到的實際零售價
+        /// POST /api/produce/community-price
+        /// 回報成功後自動增加 5 點積分，積分達標可升級 (遊戲化機制)
+        /// </summary>
+        [Authorize]
         [HttpPost("community-price")]
         public async Task<IActionResult> ReportCommunityPrice([FromBody] CommunityPriceDto request)
         {
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { Message = "Missing X-User-Id header" });
@@ -347,11 +434,16 @@ namespace ProduceApi.Controllers
             return Ok(prices);
         }
 
-        // Idea A: 取得使用者積分與等級
+        /// <summary>
+        /// 取得使用者積分與等級 (遊戲化機制)
+        /// GET /api/produce/user-stats
+        /// 等級系統：0-49分=新手菜鳥, 50-99分=精打細算, 100+分=市場達人
+        /// </summary>
+        [Authorize]
         [HttpGet("user-stats")]
         public async Task<IActionResult> GetUserStats()
         {
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { Message = "Missing X-User-Id header" });
@@ -565,10 +657,17 @@ namespace ProduceApi.Controllers
             return Ok(recipes);
         }
 
+        /// <summary>
+        /// 更新裝置 FCM 推播 Token
+        /// POST /api/produce/fcm-token
+        /// App 每次啟動時應呼叫此端點，確保 Token 最新有效
+        /// FCM Token 可能因 App 重新安裝或 Firebase 重置而變更
+        /// </summary>
+        [Authorize]
         [HttpPost("fcm-token")]
         public async Task<IActionResult> UpdateFcmToken([FromBody] FcmTokenRequest request)
         {
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { Message = "Missing X-User-Id header" });
