@@ -29,13 +29,13 @@ import com.example.produceapp.util.Resource
 // 毛玻璃效果 Modifier (淡綠色底 + 半透明 + 細邊框)
 fun Modifier.liquidGlass() = this
     .clip(RoundedCornerShape(16.dp))
-    .background(Color(0x40A5D6A7)) // 淡綠色半透明 (Light Green, 25% opacity)
+    .background(Color(0x40A5D6A7))
     .border(1.dp, Color(0x60FFFFFF), RoundedCornerShape(16.dp))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: ProduceViewModel, 
+    viewModel: ProduceViewModel,
     ttsHelper: TextToSpeechHelper,
     onNavigateToGroceryList: () -> Unit = {},
     onNavigateToElderlyMode: () -> Unit = {}
@@ -46,18 +46,15 @@ fun HomeScreen(
     val historicalDataState by viewModel.historicalData.collectAsState()
     val predictedDataState by viewModel.predictedData.collectAsState()
 
-    // 漸層背景，讓毛玻璃效果更明顯
     val bgBrush = Brush.linearGradient(
-        colors = listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9)) // 極淡綠色漸層
+        colors = listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9))
     )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("農產品批發價查詢", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         containerColor = Color.Transparent
@@ -68,65 +65,21 @@ fun HomeScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 0. 天氣與菜價預警 (颱風/暴雨警報)
-                item {
-                    WeatherAlertCard()
-                }
 
-                // 0.1 長輩友善語音搜尋按鈕
-                item {
-                    VoiceSearchButton(onClick = onNavigateToElderlyMode)
-                }
-
-                // 0.2 「今天吃什麼？」省錢食譜推薦
-                item {
-                    BudgetRecipeGenerator()
-                }
-
-                // 0.3 當季盛產日曆
-                item {
-                    Text("🌱 當季盛產推薦", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SeasonalCropCalendar()
-                }
-
-                // 0.4 尋找最近的果菜市場
-                item {
-                    MarketFinderCard()
-                }
-
-                // 0.5 前往「智慧買菜清單」
-                item {
-                    Button(
-                        onClick = onNavigateToGroceryList,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50),
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
-                    ) {
-                        Text("🛒 打開智慧買菜清單", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // 1. 價格異常警報
+                // 1. 🔴 價格異常警報（優先顯示，最緊急）
                 item {
                     when (anomaliesState) {
                         is Resource.Loading -> SkeletonLoader(modifier = Modifier.fillMaxWidth().height(50.dp))
-                        is Resource.Error -> ErrorView(message = (anomaliesState as Resource.Error).message ?: "Error", onRetry = { viewModel.fetchDashboardData() })
+                        is Resource.Error -> { /* 不阻擋其他內容 */ }
                         is Resource.Success -> {
                             val anomalies = (anomaliesState as Resource.Success).data ?: emptyList()
                             if (anomalies.isNotEmpty()) {
-                                Text("⚠️ 價格異常警報", style = MaterialTheme.typography.titleMedium, color = Color.Red)
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("⚠️ 價格異常警報", style = MaterialTheme.typography.titleMedium, color = Color.Red)
                                     anomalies.forEach { anomaly ->
                                         Box(modifier = Modifier.fillMaxWidth().liquidGlass()) {
                                             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Warning, contentDescription = "Warning", tint = Color.Red)
+                                                Icon(Icons.Default.Warning, contentDescription = "異常警報", tint = Color.Red)
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(anomaly.alertMessage, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
                                             }
@@ -138,41 +91,24 @@ fun HomeScreen(
                     }
                 }
 
-                // 2. 歷史價格與 7 日趨勢預測 (Line Chart)
-                item {
-                    if (historicalDataState is Resource.Success && predictedDataState is Resource.Success) {
-                        val historicalData = (historicalDataState as Resource.Success).data ?: emptyList()
-                        val predictedData = (predictedDataState as Resource.Success).data ?: emptyList()
-                        
-                        if (historicalData.isNotEmpty() || predictedData.isNotEmpty()) {
-                            Text("📈 高麗菜 價格趨勢與預測", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
-                            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).liquidGlass().padding(16.dp)) {
-                                PriceTrendChart(historical = historicalData, predicted = predictedData)
-                            }
-                        }
-                    } else if (historicalDataState is Resource.Loading || predictedDataState is Resource.Loading) {
-                        SkeletonLoader(modifier = Modifier.fillMaxWidth().height(200.dp))
-                    }
-                }
-
-                // 3. 熱門交易農產品
+                // 2. 🔥 今日熱門交易（Top 3 精簡橫排）
                 item {
                     when (topVolumeState) {
                         is Resource.Loading -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             repeat(3) { SkeletonLoader(modifier = Modifier.width(120.dp).height(80.dp)) }
                         }
-                        is Resource.Error -> Text("Failed to load top volume", color = Color.Red)
+                        is Resource.Error -> { }
                         is Resource.Success -> {
-                            val topVolume = (topVolumeState as Resource.Success).data ?: emptyList()
+                            val topVolume = ((topVolumeState as Resource.Success).data ?: emptyList()).take(5)
                             if (topVolume.isNotEmpty()) {
                                 Text("🔥 今日熱門交易", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     items(topVolume) { crop ->
                                         Box(modifier = Modifier.width(120.dp).liquidGlass().padding(12.dp)) {
                                             Column {
-                                                Text(crop.cropName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF1B5E20))
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text("$${crop.avgPrice}/kg", color = Color(0xFF388E3C), style = MaterialTheme.typography.bodyMedium)
+                                                Text(crop.cropName, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                                                Text("$${String.format("%.1f", crop.avgPrice)}/kg", color = Color(0xFF388E3C), style = MaterialTheme.typography.bodySmall)
                                             }
                                         }
                                     }
@@ -182,19 +118,29 @@ fun HomeScreen(
                     }
                 }
 
-                // 4. 今日菜價列表
+                // 3. 🎤 長輩語音搜尋按鈕
+                item {
+                    VoiceSearchButton(
+                        onResult = { keyword ->
+                            // 語音搜尋結果可進一步處理（例如：自動搜尋該農產品）
+                        },
+                        modifier = Modifier
+                    )
+                }
+
+                // 4. 📋 今日菜價列表
                 item { Text("📋 今日菜價", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32)) }
-                
+
                 when (dailyPricesState) {
                     is Resource.Loading -> {
                         items(5) {
-                            SkeletonLoader(modifier = Modifier.fillMaxWidth().height(80.dp).padding(vertical = 8.dp))
+                            SkeletonLoader(modifier = Modifier.fillMaxWidth().height(80.dp).padding(vertical = 4.dp))
                         }
                     }
                     is Resource.Error -> {
                         item {
                             ErrorView(
-                                message = (dailyPricesState as Resource.Error).message ?: "Failed to load prices",
+                                message = (dailyPricesState as Resource.Error).message ?: "載入失敗",
                                 onRetry = { viewModel.fetchDashboardData() }
                             )
                         }
@@ -202,12 +148,7 @@ fun HomeScreen(
                     is Resource.Success -> {
                         val dailyPrices = (dailyPricesState as Resource.Success).data ?: emptyList()
                         if (dailyPrices.isEmpty()) {
-                            item {
-                                EmptyStateView(
-                                    message = "今日暫無菜價資料",
-                                    icon = Icons.Default.ShoppingCart
-                                )
-                            }
+                            item { EmptyStateView(message = "今日暫無菜價資料", icon = Icons.Default.ShoppingCart) }
                         } else {
                             items(dailyPrices) { produce ->
                                 Box(modifier = Modifier.fillMaxWidth().liquidGlass().padding(16.dp)) {
@@ -217,7 +158,7 @@ fun HomeScreen(
                                             Text(produce.marketName, style = MaterialTheme.typography.bodySmall, color = Color(0xFF4CAF50))
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("$${produce.avgPrice}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                            Text("$${String.format("%.1f", produce.avgPrice)}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             IconButton(onClick = { ttsHelper.speak("今日 ${produce.cropName} 價格是 ${produce.avgPrice} 元") }) {
                                                 Icon(Icons.Default.VolumeUp, contentDescription = "語音播報", tint = Color(0xFF388E3C))
@@ -227,6 +168,60 @@ fun HomeScreen(
                                 }
                             }
                         }
+                    }
+                }
+
+                // 5. ⛈️ 天氣預警（真實 API，無警報時自動隱藏）
+                item {
+                    WeatherAlertCard(viewModel = viewModel)
+                }
+
+                // 6. 🍳 省錢食譜推薦（真實 API）
+                item {
+                    BudgetRecipeGenerator(viewModel = viewModel)
+                }
+
+                // 7. 📈 高麗菜歷史價格趨勢圖
+                item {
+                    if (historicalDataState is Resource.Success && predictedDataState is Resource.Success) {
+                        val historical = (historicalDataState as Resource.Success).data ?: emptyList()
+                        val predicted = (predictedDataState as Resource.Success).data ?: emptyList()
+                        if (historical.isNotEmpty()) {
+                            Text("📈 高麗菜 價格趨勢與預測", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).liquidGlass().padding(16.dp)) {
+                                PriceTrendChart(historical = historical, predicted = predicted)
+                            }
+                        }
+                    } else if (historicalDataState is Resource.Loading) {
+                        SkeletonLoader(modifier = Modifier.fillMaxWidth().height(200.dp))
+                    }
+                }
+
+                // 8. 🌱 當季盛產日曆
+                item {
+                    Text("🌱 當季盛產推薦", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SeasonalCropCalendar()
+                }
+
+                // 9. 📍 尋找最近的果菜市場
+                item {
+                    MarketFinderCard()
+                }
+
+                // 10. 🛒 智慧買菜清單入口
+                item {
+                    Button(
+                        onClick = onNavigateToGroceryList,
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                    ) {
+                        Text("🛒 打開智慧買菜清單", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

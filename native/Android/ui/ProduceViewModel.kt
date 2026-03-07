@@ -79,6 +79,14 @@ class ProduceViewModel @Inject constructor(
     private val _seasonalCrops = MutableStateFlow<Resource<List<SeasonalCropDto>>>(Resource.Loading())
     val seasonalCrops: StateFlow<Resource<List<SeasonalCropDto>>> = _seasonalCrops
 
+    /** 颱風/豪大雨天氣預警 */
+    private val _weatherAlerts = MutableStateFlow<Resource<WeatherAlertDto>>(Resource.Loading())
+    val weatherAlerts: StateFlow<Resource<WeatherAlertDto>> = _weatherAlerts
+
+    /** 今日省錢食譜推薦 */
+    private val _budgetRecipes = MutableStateFlow<Resource<List<BudgetRecipeDto>>>(Resource.Loading())
+    val budgetRecipes: StateFlow<Resource<List<BudgetRecipeDto>>> = _budgetRecipes
+
     // MARK: - 初始化
 
     /**
@@ -129,7 +137,7 @@ class ProduceViewModel @Inject constructor(
                     forecast.recentAverage * 0.95
                 }
                 _predictedData.value = Resource.Success(listOf(
-                    PricePredictionDto("Next Day", nextDayPrice.toFloat())
+                    PricePredictionDto("Next Day", nextDayPrice)
                 ))
 
                 // 7. 載入我的收藏及是否達到目標提醒價
@@ -137,16 +145,27 @@ class ProduceViewModel @Inject constructor(
 
             } catch (e: Exception) {
                 // 任一 API 失敗時，將所有狀態設為 Error
-                // UI 會根據 Resource.Error 顯示錯誤訊息 + 重試按鈕
                 e.printStackTrace()
                 val errorMsg = e.message ?: "網路連線失敗，請稍後再試"
-                _anomalies.value     = Resource.Error(errorMsg)
-                _topVolume.value     = Resource.Error(errorMsg)
-                _seasonalCrops.value = Resource.Error(errorMsg)
-                _dailyPrices.value   = Resource.Error(errorMsg)
+                _anomalies.value      = Resource.Error(errorMsg)
+                _topVolume.value      = Resource.Error(errorMsg)
+                _seasonalCrops.value  = Resource.Error(errorMsg)
+                _dailyPrices.value    = Resource.Error(errorMsg)
                 _historicalData.value = Resource.Error(errorMsg)
-                _predictedData.value = Resource.Error(errorMsg)
-                _favorites.value     = Resource.Error(errorMsg)
+                _predictedData.value  = Resource.Error(errorMsg)
+                _favorites.value      = Resource.Error(errorMsg)
+            }
+
+            // 天氣預警與省錢食譜獨立載入，不影響主要資料
+            try {
+                _weatherAlerts.value = Resource.Success(produceService.getWeatherAlerts())
+            } catch (e: Exception) {
+                _weatherAlerts.value = Resource.Error("天氣預警載入失敗")
+            }
+            try {
+                _budgetRecipes.value = Resource.Success(produceService.getBudgetRecipes())
+            } catch (e: Exception) {
+                _budgetRecipes.value = Resource.Error("食譜推薦載入失敗")
             }
         }
     }

@@ -44,12 +44,28 @@ data class SeasonalCropDto(
 
 data class HistoricalPriceDto(
     val date: String,
-    val avgPrice: Float
+    val avgPrice: Double  // Double 與後端/iOS 一致，避免精度損失
 )
 
 data class PricePredictionDto(
     val date: String,
-    val predictedPrice: Float
+    val predictedPrice: Double  // Double 與後端/iOS 一致
+)
+
+data class WeatherAlertDto(
+    val alertType: String,
+    val severity: String?,
+    val title: String?,
+    val message: String?,
+    val affectedCrops: List<String>?
+)
+
+data class BudgetRecipeDto(
+    val recipeName: String,
+    val mainIngredients: List<String>,
+    val reason: String,
+    val imageUrl: String,
+    val steps: List<String>
 )
 
 data class PricePredictionResponse(

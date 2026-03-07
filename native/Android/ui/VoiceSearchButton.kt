@@ -71,7 +71,7 @@ fun VoiceSearchButton(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "按住說話",
+                text = "點擊說話",
                 fontSize = 28.sp, // 超大字體
                 fontWeight = FontWeight.Bold
             )

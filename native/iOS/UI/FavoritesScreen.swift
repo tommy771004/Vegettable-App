@@ -58,7 +58,7 @@ struct FavoritesScreen: View {
                                         Spacer()
                                         
                                         VStack(alignment: .trailing) {
-                                            if item.isReached {
+                                            if item.isAlertTriggered {
                                                 Image(systemName: "bell.badge.fill")
                                                     .foregroundColor(Color(hex: "E65100"))
                                                     .font(.title)
